@@ -1,0 +1,144 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 60 20% 98%;
+    --foreground: 150 25% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 150 25% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 150 25% 15%;
+    --primary: 152 45% 28%;
+    --primary-foreground: 60 20% 98%;
+    --secondary: 35 30% 92%;
+    --secondary-foreground: 35 40% 25%;
+    --muted: 60 15% 93%;
+    --muted-foreground: 150 10% 45%;
+    --accent: 142 50% 45%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 142 70% 40%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 38 92% 15%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+    --pending: 45 93% 47%;
+    --pending-foreground: 45 93% 15%;
+    --border: 150 15% 85%;
+    --input: 150 15% 85%;
+    --ring: 152 45% 28%;
+    --radius: 0.625rem;
+    --sidebar-background: 152 45% 22%;
+    --sidebar-foreground: 60 20% 95%;
+    --sidebar-primary: 142 50% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 152 40% 30%;
+    --sidebar-accent-foreground: 60 20% 95%;
+    --sidebar-border: 152 35% 35%;
+    --sidebar-ring: 142 50% 55%;
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground antialiased; }
+  h1, h2, h3, h4, h5, h6 { @apply font-semibold tracking-tight text-foreground; }
+}
+
+@layer components {
+  .data-table { @apply w-full text-sm; }
+  .data-table th {
+    @apply px-4 py-3 text-left font-medium text-muted-foreground bg-muted/50 first:rounded-tl-lg last:rounded-tr-lg;
+  }
+  .data-table td { @apply px-4 py-3 border-t border-border; }
+  .data-table tbody tr { @apply hover:bg-muted/30 transition-colors; }
+}
+
+/* Coconut Plantation screens - dark theme */
+.coconut-screen {
+  --coconut-bg: 220 15% 10%;
+  --coconut-card: 220 12% 14%;
+  --coconut-border: 142 50% 35%;
+  --coconut-text: 0 0% 98%;
+  --coconut-muted: 220 10% 55%;
+}
+.coconut-screen {
+  min-height: 100vh;
+  background-color: hsl(var(--coconut-bg));
+  color: hsl(var(--coconut-text));
+}
+.coconut-screen .coconut-card {
+  background-color: hsl(var(--coconut-card));
+  border: 1px solid hsl(var(--coconut-border));
+  color: hsl(var(--coconut-text));
+}
+.coconut-screen .coconut-input {
+  background-color: hsl(220 12% 18%);
+  border-color: hsl(var(--coconut-border));
+  color: hsl(var(--coconut-text));
+}
+.coconut-screen .coconut-input::placeholder {
+  color: hsl(var(--coconut-muted));
+}
+
+/* Ensure Leaflet map container has height so map tiles render and can receive draw clicks */
+.leaflet-container,
+.coconut-map-draw-container .leaflet-pane {
+  min-height: 400px;
+  height: 100%;
+  z-index: 0;
+  pointer-events: auto;
+}
+
+/* Polygon edit: blue vertex markers (match blue polygons) */
+.leaflet-marker-icon.leaflet-edit-marker,
+.leaflet-editing-icon {
+  background-color: #2563eb !important;
+  border: 2px solid #fff !important;
+  border-radius: 50% !important;
+  width: 12px !important;
+  height: 12px !important;
+  margin-left: -6px !important;
+  margin-top: -6px !important;
+}
+/* Use sprites from public so toolbar icons (polygon, edit, delete) are visible */
+.leaflet-draw-toolbar a {
+  background-color: #fff !important;
+  background-image: url('/leaflet-draw-images/spritesheet.png') !important;
+  background-repeat: no-repeat !important;
+  background-size: 300px 30px !important;
+}
+.leaflet-retina .leaflet-draw-toolbar a {
+  background-image: url('/leaflet-draw-images/spritesheet-2x.png') !important;
+}
+
+/* Ensure draw toolbar is above overlays and always visible/clickable */
+.leaflet-draw {
+  z-index: 1001 !important;
+  display: block !important;
+  visibility: visible !important;
+}
+.leaflet-control-container .leaflet-top.leaflet-right {
+  z-index: 1001 !important;
+}
+.leaflet-draw-toolbar,
+.leaflet-draw-toolbar .leaflet-draw-draw-polygon,
+.leaflet-draw-toolbar .leaflet-draw-draw-rectangle {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+@layer utilities {
+  .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+}

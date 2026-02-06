@@ -1,0 +1,37 @@
+# Dependencies
+node_modules
+
+# Build outputs
+dist
+dist-ssr
+*.local
+build
+.next
+out
+
+# Logs and debug
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Editor and OS
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Optional: uncomment to ignore Cursor MCP config (project-specific)
+# .cursor/

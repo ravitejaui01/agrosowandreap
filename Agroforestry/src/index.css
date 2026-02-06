@@ -1,0 +1,268 @@
+@import "leaflet/dist/leaflet.css";
+@import "leaflet-draw/dist/leaflet.draw.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Agricultural/Professional Green Theme */
+    --background: 60 20% 98%;
+    --foreground: 150 25% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 150 25% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 150 25% 15%;
+
+    /* Deep Forest Green - Primary */
+    --primary: 152 45% 28%;
+    --primary-foreground: 60 20% 98%;
+
+    /* Warm Earth Tones - Secondary */
+    --secondary: 35 30% 92%;
+    --secondary-foreground: 35 40% 25%;
+
+    --muted: 60 15% 93%;
+    --muted-foreground: 150 10% 45%;
+
+    /* Fresh Leaf Green - Accent */
+    --accent: 142 50% 45%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Status Colors */
+    --success: 142 70% 40%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 38 92% 15%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+    --pending: 45 93% 47%;
+    --pending-foreground: 45 93% 15%;
+
+    --border: 150 15% 85%;
+    --input: 150 15% 85%;
+    --ring: 152 45% 28%;
+
+    --radius: 0.625rem;
+
+    /* Sidebar */
+    --sidebar-background: 152 45% 22%;
+    --sidebar-foreground: 60 20% 95%;
+    --sidebar-primary: 142 50% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 152 40% 30%;
+    --sidebar-accent-foreground: 60 20% 95%;
+    --sidebar-border: 152 35% 35%;
+    --sidebar-ring: 142 50% 55%;
+
+    /* Custom Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(152, 45%, 28%) 0%, hsl(142, 50%, 35%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(152, 45%, 22%) 0%, hsl(152, 45%, 32%) 50%, hsl(142, 50%, 40%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(0, 0%, 100%) 0%, hsl(60, 20%, 98%) 100%);
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 hsl(150 25% 15% / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(150 25% 15% / 0.1), 0 2px 4px -2px hsl(150 25% 15% / 0.1);
+    --shadow-lg: 0 10px 15px -3px hsl(150 25% 15% / 0.1), 0 4px 6px -4px hsl(150 25% 15% / 0.1);
+    --shadow-card: 0 1px 3px 0 hsl(150 25% 15% / 0.1), 0 1px 2px -1px hsl(150 25% 15% / 0.1);
+  }
+
+  .dark {
+    --background: 150 25% 8%;
+    --foreground: 60 20% 95%;
+
+    --card: 150 20% 12%;
+    --card-foreground: 60 20% 95%;
+
+    --popover: 150 20% 12%;
+    --popover-foreground: 60 20% 95%;
+
+    --primary: 142 50% 50%;
+    --primary-foreground: 150 25% 8%;
+
+    --secondary: 150 15% 18%;
+    --secondary-foreground: 60 20% 90%;
+
+    --muted: 150 15% 18%;
+    --muted-foreground: 150 10% 60%;
+
+    --accent: 142 50% 45%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62% 40%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 150 15% 22%;
+    --input: 150 15% 22%;
+    --ring: 142 50% 50%;
+
+    --sidebar-background: 150 25% 6%;
+    --sidebar-foreground: 60 20% 95%;
+    --sidebar-primary: 142 50% 50%;
+    --sidebar-primary-foreground: 150 25% 8%;
+    --sidebar-accent: 150 20% 15%;
+    --sidebar-accent-foreground: 60 20% 95%;
+    --sidebar-border: 150 15% 20%;
+    --sidebar-ring: 142 50% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight text-foreground;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-card/80 backdrop-blur-sm border border-border/50 rounded-lg;
+    box-shadow: var(--shadow-card);
+  }
+
+  .gradient-primary {
+    background: var(--gradient-primary);
+  }
+
+  .gradient-hero {
+    background: var(--gradient-hero);
+  }
+
+  .status-badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .status-pending {
+    @apply bg-pending/15 text-pending-foreground border border-pending/30;
+    color: hsl(var(--pending));
+  }
+
+  .status-approved {
+    @apply bg-success/15 border border-success/30;
+    color: hsl(var(--success));
+  }
+
+  .status-rejected {
+    @apply bg-destructive/15 border border-destructive/30;
+    color: hsl(var(--destructive));
+  }
+
+  .status-review {
+    @apply bg-info/15 border border-info/30;
+    color: hsl(var(--info));
+  }
+
+  .workflow-step {
+    @apply flex items-center gap-3 p-3 rounded-lg transition-all duration-200;
+  }
+
+  .workflow-step-active {
+    @apply bg-primary/10 border border-primary/30;
+  }
+
+  .workflow-step-complete {
+    @apply bg-success/10 border border-success/30;
+  }
+
+  .workflow-step-pending {
+    @apply bg-muted border border-border;
+  }
+
+  .data-table {
+    @apply w-full text-sm;
+  }
+
+  .data-table th {
+    @apply px-4 py-3 text-left font-medium text-muted-foreground bg-muted/50 first:rounded-tl-lg last:rounded-tr-lg;
+  }
+
+  .data-table td {
+    @apply px-4 py-3 border-t border-border;
+  }
+
+  .data-table tbody tr {
+    @apply hover:bg-muted/30 transition-colors;
+  }
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.4s ease-out;
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.2s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slideUp {
+    from { 
+      opacity: 0; 
+      transform: translateY(10px); 
+    }
+    to { 
+      opacity: 1; 
+      transform: translateY(0); 
+    }
+  }
+
+  @keyframes scaleIn {
+    from { 
+      opacity: 0; 
+      transform: scale(0.95); 
+    }
+    to { 
+      opacity: 1; 
+      transform: scale(1); 
+    }
+  }
+}
+
+/* Deployment map: ensure height and red polygon vertex markers */
+.leaflet-container {
+  min-height: 400px;
+  height: 100%;
+  z-index: 0;
+}
+.leaflet-marker-icon.leaflet-edit-marker,
+.leaflet-editing-icon {
+  background-color: #dc2626 !important;
+  border: 2px solid #fff !important;
+  border-radius: 50% !important;
+  width: 12px !important;
+  height: 12px !important;
+  margin-left: -6px !important;
+  margin-top: -6px !important;
+}
+/* Use sprites from public so toolbar icons (polygon, edit, delete) are visible */
+.leaflet-draw-toolbar a {
+  background-color: #fff !important;
+  background-image: url('/leaflet-draw-images/spritesheet.png') !important;
+  background-repeat: no-repeat !important;
+  background-size: 300px 30px !important;
+}
+.leaflet-retina .leaflet-draw-toolbar a {
+  background-image: url('/leaflet-draw-images/spritesheet-2x.png') !important;
+}
