@@ -24,6 +24,7 @@ import {
   Sprout,
   ChevronRight,
   UserCheck,
+  FilePlus,
 } from "lucide-react";
 
 interface DashboardLayoutProps {
@@ -60,6 +61,8 @@ const navigationItems: Record<UserRole, Array<{ name: string; href: string; icon
   admin: [
     { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
     { name: "All Records", href: "/admin/records", icon: FileCheck },
+    { name: "Coconut Plantation", href: "/admin/coconut", icon: Sprout },
+    { name: "Coconut Plantation Registration", href: "/admin/coconut/register", icon: FilePlus },
     { name: "User Management", href: "/admin/users", icon: Users },
   ],
 };

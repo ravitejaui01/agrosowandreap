@@ -17,6 +17,8 @@ import OfficerDashboard from "./pages/officer/OfficerDashboard";
 
 // Admin Pages
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import CoconutPlantation from "./pages/admin/CoconutPlantation";
+import CoconutPlantationRegistration from "./pages/admin/CoconutPlantationRegistration";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +46,8 @@ const App = () => (
           {/* Admin Routes */}
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/records" element={<AdminDashboard />} />
+          <Route path="/admin/coconut" element={<CoconutPlantation />} />
+          <Route path="/admin/coconut/register" element={<CoconutPlantationRegistration />} />
           <Route path="/admin/users" element={<AdminDashboard />} />
           
           {/* Catch-all */}

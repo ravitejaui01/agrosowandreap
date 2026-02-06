@@ -54,22 +54,6 @@ CREATE TABLE IF NOT EXISTS validation_history (
   comments TEXT
 );
 
--- Biochar deployments
-CREATE TABLE IF NOT EXISTS biochar_deployments (
-  id TEXT PRIMARY KEY,
-  site_name TEXT NOT NULL,
-  district TEXT NOT NULL,
-  village TEXT,
-  deployment_date DATE NOT NULL,
-  quantity_tonnes NUMERIC,
-  area_acres NUMERIC NOT NULL,
-  latlngs JSONB,
-  notes TEXT,
-  created_by TEXT NOT NULL REFERENCES users(id),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
 -- Coconut submissions (field agent app)
 CREATE TABLE IF NOT EXISTS coconut_submissions (
   id TEXT PRIMARY KEY,

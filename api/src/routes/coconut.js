@@ -30,10 +30,29 @@ function rowToCoconut(row) {
   };
 }
 
+// List all coconut plantations
 router.get("/", async (req, res) => {
   try {
     const result = await query("SELECT * FROM coconut_submissions ORDER BY created_at DESC");
     res.json(result.rows.map(rowToCoconut));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Coconut Plantation stats (for dashboard)
+router.get("/stats", async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT
+        COUNT(*)::int AS total_plantations,
+        COALESCE(SUM(area_under_coconut_hectares), 0)::numeric AS total_area_hectares,
+        COALESCE(SUM(seedlings_planted), 0)::int AS total_seedlings_planted,
+        COALESCE(SUM(seedlings_survived), 0)::int AS total_seedlings_survived
+      FROM coconut_submissions
+    `);
+    res.json(result.rows[0]);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });

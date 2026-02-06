@@ -3,7 +3,6 @@ import express from "express";
 import cors from "cors";
 import users from "./routes/users.js";
 import farmers from "./routes/farmers.js";
-import biochar from "./routes/biochar.js";
 import coconut from "./routes/coconut.js";
 import { query } from "./db/pool.js";
 
@@ -28,7 +27,6 @@ app.get("/ready", async (req, res) => {
 
 app.use("/api/users", users);
 app.use("/api/farmers", farmers);
-app.use("/api/biochar", biochar);
 app.use("/api/coconut", coconut);
 
 app.use((err, req, res, next) => {

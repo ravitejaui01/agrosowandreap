@@ -13,10 +13,10 @@ Express + PostgreSQL API for the Agroforestry and Field Agent apps.
 | GET/POST | `/api/farmers` | List / create farmer records |
 | GET | `/api/farmers/stats` | Dashboard stats |
 | GET/PATCH | `/api/farmers/:id` | Get / update farmer record |
-| GET/POST | `/api/biochar` | List / create biochar deployments |
-| GET/PUT | `/api/biochar/:id` | Get / update biochar deployment |
-| GET/POST | `/api/coconut` | List / create coconut submissions |
-| GET | `/api/coconut/:id` | Get coconut submission |
+| GET | `/api/coconut` | Coconut Plantation – list all |
+| GET | `/api/coconut/stats` | Coconut Plantation – dashboard stats |
+| GET | `/api/coconut/:id` | Get one coconut submission |
+| POST | `/api/coconut` | Coconut Plantation Registration – create |
 
 ## Local development
 
@@ -66,7 +66,6 @@ Express + PostgreSQL API for the Agroforestry and Field Agent apps.
 - `farmer_records` – farmer registration records
 - `documents` – documents linked to farmer records
 - `validation_history` – workflow history
-- `biochar_deployments` – biochar deployment tracking
 - `coconut_submissions` – field agent coconut data
 
 All tables use `CREATE TABLE IF NOT EXISTS`, so it’s safe to run on every deploy.
