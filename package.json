@@ -1,0 +1,7 @@
+{
+  "name": "sowandreap-agroforestry",
+  "private": true,
+  "scripts": {
+    "push": "bash scripts/push.sh"
+  }
+}
