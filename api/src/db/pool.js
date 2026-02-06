@@ -3,9 +3,12 @@ import "dotenv/config";
 
 const { Pool } = pg;
 
-const connectionString = process.env.DATABASE_URL;
+// Prefer public URL on Railway so .railway.internal hostname resolves (private DNS can fail)
+const connectionString =
+  process.env.DATABASE_PUBLIC_URL ||
+  process.env.DATABASE_URL;
 if (!connectionString) {
-  console.warn("DATABASE_URL not set. API will run but DB operations will fail.");
+  console.warn("DATABASE_URL (or DATABASE_PUBLIC_URL) not set. API will run but DB operations will fail.");
 }
 
 export const pool = new Pool({

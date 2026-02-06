@@ -6,8 +6,9 @@ import { pool } from "./pool.js";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 async function init() {
-  if (!process.env.DATABASE_URL) {
-    console.error("DATABASE_URL is required. Set it in .env or Railway.");
+  const url = process.env.DATABASE_PUBLIC_URL || process.env.DATABASE_URL;
+  if (!url) {
+    console.error("DATABASE_URL or DATABASE_PUBLIC_URL is required. Set it in .env or Railway.");
     process.exit(1);
   }
   const schema = readFileSync(join(__dirname, "schema.sql"), "utf8");
