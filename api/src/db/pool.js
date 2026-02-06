@@ -7,8 +7,17 @@ const { Pool } = pg;
 const connectionString =
   process.env.DATABASE_PUBLIC_URL ||
   process.env.DATABASE_URL;
+
 if (!connectionString) {
   console.warn("DATABASE_URL (or DATABASE_PUBLIC_URL) not set. API will run but DB operations will fail.");
+} else if (
+  connectionString.includes("railway.internal") &&
+  !process.env.DATABASE_PUBLIC_URL
+) {
+  console.error(
+    "[Railway] DATABASE_URL uses a private hostname that may not resolve. " +
+    "In the API service Variables, add a Variable Reference to the Postgres service and select DATABASE_PUBLIC_URL."
+  );
 }
 
 export const pool = new Pool({

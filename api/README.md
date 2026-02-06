@@ -49,7 +49,7 @@ Express + PostgreSQL API for the Agroforestry and Field Agent apps.
    - **Root Directory**: set to `api` (so Railway uses `api/package.json` and runs from `api/`).
    - **Build Command**: leave default (Nixpacks will run `npm install`).
    - **Start Command**: `npm run db:init && npm start` (or leave default if you set it in `railway.json`).
-4. **Variables**: Ensure the API service has access to the DB. In Railway, add a **Reference** to the PostgreSQL service’s `DATABASE_URL` (or use **Variables** → **Add variable** → **Add reference** and pick `DATABASE_URL` from the Postgres service).
+4. **Variables**: Use the **public** DB URL so the API can resolve the host. In Railway: **API service** → **Variables** → **Add Variable** → **Reference** → select **Postgres** → choose **`DATABASE_PUBLIC_URL`** (not `DATABASE_URL`; the internal URL can cause `ENOTFOUND`).
 5. Deploy: Railway will build and deploy. On first start, `db:init` creates the tables.
 
 ### 3. Get the API URL
