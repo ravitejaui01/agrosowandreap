@@ -168,15 +168,16 @@ function DrawControl({
             polyline: false,
             circle: false,
             rectangle: {
+              allowIntersection: false,
               shapeOptions: POLYGON_STYLE,
+              metric: true,
+              repeatMode: false,
             },
             marker: false,
             circlemarker: false,
           },
           edit: {
             featureGroup: fg,
-            edit: true,
-            remove: true,
           },
         });
         map.addControl(drawControl);

@@ -1,19 +1,28 @@
+import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { StatsCard } from "@/components/dashboard/StatsCard";
 import { RecentRecords } from "@/components/dashboard/RecentRecords";
-import { mockValidatorStats, mockFarmerRecords } from "@/data/mockData";
+import { getFarmerRecords, getFarmerStats } from "@/lib/api";
 import { FileText, Clock, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export default function ValidatorDashboard() {
-  const reviewQueue = mockFarmerRecords.filter(
+  const { data: stats, isLoading: statsLoading } = useQuery({
+    queryKey: ["validator-stats"],
+    queryFn: getFarmerStats,
+  });
+  const { data: allRecords = [], isLoading: recordsLoading } = useQuery({
+    queryKey: ["validator-farmer-records"],
+    queryFn: () => getFarmerRecords(),
+  });
+
+  const reviewQueue = allRecords.filter(
     (r) => r.status === "submitted" || r.status === "under_review"
   );
 
   return (
     <DashboardLayout userRole="data_validator" userName="Mary Wanjiku">
       <div className="space-y-8">
-        {/* Header */}
         <div>
           <h1 className="text-2xl font-bold">Data Validator Dashboard</h1>
           <p className="text-muted-foreground">
@@ -21,25 +30,24 @@ export default function ValidatorDashboard() {
           </p>
         </div>
 
-        {/* Stats Grid */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatsCard
             title="Total Reviewed"
-            value={mockValidatorStats.totalRecords}
+            value={statsLoading ? "…" : (stats?.totalRecords ?? 0)}
             icon={FileText}
             description="All time reviews"
             variant="primary"
           />
           <StatsCard
             title="Pending Review"
-            value={mockValidatorStats.pendingReview}
+            value={statsLoading ? "…" : (stats?.pendingReview ?? 0)}
             icon={Clock}
             description="Awaiting your review"
             variant="warning"
           />
           <StatsCard
             title="Verified"
-            value={mockValidatorStats.approved}
+            value={statsLoading ? "…" : (stats?.approved ?? 0)}
             icon={CheckCircle2}
             description="Sent for final approval"
             variant="success"
@@ -47,14 +55,13 @@ export default function ValidatorDashboard() {
           />
           <StatsCard
             title="Corrections Requested"
-            value={mockValidatorStats.correctionsNeeded}
+            value={statsLoading ? "…" : (stats?.correctionsNeeded ?? 0)}
             icon={AlertTriangle}
             description="Sent back for corrections"
             variant="info"
           />
         </div>
 
-        {/* Quick Actions */}
         <div className="grid sm:grid-cols-2 gap-4">
           <Link
             to="/validator/verified"
@@ -70,15 +77,16 @@ export default function ValidatorDashboard() {
                   View all verified submissions
                 </p>
               </div>
-              <span className="text-3xl font-bold text-success">{mockValidatorStats.approved}</span>
+              <span className="text-3xl font-bold text-success">
+                {statsLoading ? "…" : (stats?.approved ?? 0)}
+              </span>
             </div>
           </Link>
         </div>
 
-        {/* Recent Records */}
         <RecentRecords
           records={reviewQueue.slice(0, 5)}
-          viewAllLink="/validator/farmers"
+          viewAllLink="/validator/records"
           showActions
           onView={(record) => console.log("View record:", record)}
         />

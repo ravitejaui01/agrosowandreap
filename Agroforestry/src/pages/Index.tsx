@@ -36,8 +36,8 @@ const features = [
 const roles = [
   {
     title: "Data Validator",
-    description: "Review and verify submissions",
-    path: "/validator",
+    description: "Review and verify farmer records",
+    path: "/validator/farmers",
     color: "bg-warning/10 border-warning/30 hover:bg-warning/20",
     iconBg: "bg-warning text-warning-foreground",
   },

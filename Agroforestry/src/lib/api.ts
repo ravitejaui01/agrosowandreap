@@ -1,4 +1,8 @@
-const API_BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
+// Dev: "" = proxy forwards /api to Railway. Production: full Railway URL
+const API_BASE = (
+  import.meta.env.VITE_API_URL ??
+  (import.meta.env.DEV ? "" : "https://api-production-de18.up.railway.app")
+).replace(/\/$/, "");
 
 function get(url: string) {
   return fetch(API_BASE + url).then((r) => {
@@ -17,6 +21,63 @@ function post(url: string, body: unknown) {
     return r.json();
   });
 }
+
+function patch(url: string, body: unknown) {
+  return fetch(API_BASE + url, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }).then((r) => {
+    if (!r.ok) throw new Error(r.statusText);
+    return r.json();
+  });
+}
+
+// ---------- Data Validator: Farmers / Records ----------
+
+/** List all farmer records (optional status filter) */
+export async function getFarmerRecords(status?: string) {
+  const url = status ? `/api/farmers?status=${encodeURIComponent(status)}` : "/api/farmers";
+  return get(url) as Promise<import("@/types").FarmerRecord[]>;
+}
+
+/** Farmer records stats for validator dashboard */
+export async function getFarmerStats() {
+  const raw = (await get("/api/farmers/stats")) as {
+    total_records?: number;
+    pending_review?: number;
+    approved?: number;
+    rejected?: number;
+    corrections_needed?: number;
+  };
+  return {
+    totalRecords: raw.total_records ?? 0,
+    pendingReview: raw.pending_review ?? 0,
+    approved: raw.approved ?? 0,
+    rejected: raw.rejected ?? 0,
+    correctionsNeeded: raw.corrections_needed ?? 0,
+  } as import("@/types").DashboardStats;
+}
+
+/** Get one farmer record by id */
+export async function getFarmerRecordById(id: string) {
+  return get(`/api/farmers/${id}`) as Promise<import("@/types").FarmerRecord>;
+}
+
+/** Update farmer record (e.g. status for validator workflow) */
+export async function updateFarmerRecord(
+  id: string,
+  data: Partial<import("@/types").FarmerRecord>
+) {
+  return patch(`/api/farmers/${id}`, data) as Promise<import("@/types").FarmerRecord>;
+}
+
+/** List all users (for Field Executives = field_agent role) */
+export async function getUsers() {
+  return get("/api/users") as Promise<import("@/types").User[]>;
+}
+
+// ---------- Coconut ----------
 
 /** Coconut Plantation – list all */
 export async function getCoconutPlantations() {

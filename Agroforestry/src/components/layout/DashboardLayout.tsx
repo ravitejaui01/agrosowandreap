@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { UserRole } from "@/types";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -71,10 +72,13 @@ export function DashboardLayout({ children, userRole, userName }: DashboardLayou
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const { user: authUser, logout } = useAuth();
   const navItems = navigationItems[userRole];
   const roleInfo = roleConfig[userRole];
+  const displayName = authUser && authUser.role === userRole ? authUser.name : userName;
 
   const handleLogout = () => {
+    if (authUser) logout();
     navigate("/");
   };
 
@@ -135,11 +139,11 @@ export function DashboardLayout({ children, userRole, userName }: DashboardLayou
             <div className="flex items-center gap-3">
               <Avatar className="h-9 w-9">
                 <AvatarFallback className="bg-sidebar-accent text-sidebar-accent-foreground text-sm">
-                  {userName.split(" ").map((n) => n[0]).join("")}
+                  {displayName.split(" ").map((n) => n[0]).join("")}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-sidebar-foreground truncate">{userName}</p>
+                <p className="text-sm font-medium text-sidebar-foreground truncate">{displayName}</p>
                 <div className="flex items-center gap-1.5">
                   <span className={cn("h-2 w-2 rounded-full", roleInfo.color)} />
                   <p className="text-xs text-sidebar-foreground/70">{roleInfo.label}</p>
@@ -170,10 +174,10 @@ export function DashboardLayout({ children, userRole, userName }: DashboardLayou
               <Button variant="ghost" className="gap-2">
                 <Avatar className="h-8 w-8">
                   <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                    {userName.split(" ").map((n) => n[0]).join("")}
+                    {displayName.split(" ").map((n) => n[0]).join("")}
                   </AvatarFallback>
                 </Avatar>
-                <span className="hidden sm:inline-block text-sm">{userName}</span>
+                <span className="hidden sm:inline-block text-sm">{displayName}</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">

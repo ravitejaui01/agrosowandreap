@@ -1,7 +1,8 @@
 import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { mockUsers, mockFarmerRecords } from "@/data/mockData";
 import { User } from "@/types";
+import { getUsers, getFarmerRecords } from "@/lib/api";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -14,10 +15,19 @@ type FieldExecutiveWithStats = User & {
 };
 
 export default function ValidatorFieldExecutives() {
+  const { data: users = [] } = useQuery({
+    queryKey: ["users"],
+    queryFn: getUsers,
+  });
+  const { data: records = [] } = useQuery({
+    queryKey: ["validator-farmer-records"],
+    queryFn: () => getFarmerRecords(),
+  });
+
   const fieldExecutives = useMemo(() => {
-    const agents = mockUsers.filter((u) => u.role === "field_agent");
+    const agents = users.filter((u) => u.role === "field_agent");
     return agents.map((agent) => {
-      const submissions = mockFarmerRecords.filter((r) => r.createdBy === agent.id);
+      const submissions = records.filter((r) => r.createdBy === agent.id);
       const pendingReview = submissions.filter(
         (r) => r.status === "submitted" || r.status === "under_review"
       ).length;
@@ -31,7 +41,7 @@ export default function ValidatorFieldExecutives() {
         verified,
       } as FieldExecutiveWithStats;
     });
-  }, []);
+  }, [users, records]);
 
   return (
     <DashboardLayout userRole="data_validator" userName="Mary Wanjiku">

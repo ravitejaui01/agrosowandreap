@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "db:init": "node src/db/init.js"
+    "db:init": "node src/db/init.js",
+    "sync:coconut": "node scripts/sync-coconut-to-farmers.js"
   },
   "engines": {
     "node": ">=18"

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { query } from "../db/pool.js";
+import { getFarmerRecordsFromFallback } from "../db/fallbackStore.js";
 
 const router = Router();
 
@@ -71,10 +72,12 @@ router.get("/", async (req, res) => {
     const list = recs.rows.map((r) =>
       rowToFarmer(r, byRec(docs, r.id), byRec(hist, r.id))
     );
-    res.json(list);
+    return res.json(list);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    // Fallback: return records from in-memory store when DB is unavailable
+    console.warn("Farmers GET: DB unavailable, using fallback store:", err.message);
+    const list = getFarmerRecordsFromFallback();
+    return res.json(list);
   }
 });
 
@@ -89,10 +92,18 @@ router.get("/stats", async (req, res) => {
         COUNT(*) FILTER (WHERE status = 'corrections_needed')::int AS corrections_needed
       FROM farmer_records
     `);
-    res.json(result.rows[0]);
+    return res.json(result.rows[0]);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    // Fallback: compute stats from in-memory store
+    const list = getFarmerRecordsFromFallback();
+    const stats = {
+      total_records: list.length,
+      pending_review: list.filter((r) => r.status === "submitted" || r.status === "under_review").length,
+      approved: list.filter((r) => r.status === "approved").length,
+      rejected: list.filter((r) => r.status === "rejected").length,
+      corrections_needed: list.filter((r) => r.status === "corrections_needed").length,
+    };
+    return res.json(stats);
   }
 });
 

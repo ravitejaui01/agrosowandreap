@@ -2,9 +2,12 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ValidatorProtectedRoute } from "@/components/ValidatorProtectedRoute";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import ValidatorLogin from "./pages/ValidatorLogin";
 
 // Validator Pages
 import ValidatorDashboard from "./pages/validator/ValidatorDashboard";
@@ -27,16 +30,18 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          
-          {/* Data Validator Routes */}
-          <Route path="/validator" element={<ValidatorDashboard />} />
-          <Route path="/validator/farmers" element={<ValidatorFarmers />} />
-          <Route path="/validator/field-executives" element={<ValidatorFieldExecutives />} />
-          <Route path="/validator/records" element={<ValidatorRecords />} />
-          <Route path="/validator/verified" element={<ValidatorDashboard />} />
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/login" element={<ValidatorLogin />} />
+            
+            {/* Data Validator Routes (requires login) */}
+            <Route path="/validator" element={<ValidatorProtectedRoute><ValidatorDashboard /></ValidatorProtectedRoute>} />
+            <Route path="/validator/farmers" element={<ValidatorProtectedRoute><ValidatorFarmers /></ValidatorProtectedRoute>} />
+            <Route path="/validator/field-executives" element={<ValidatorProtectedRoute><ValidatorFieldExecutives /></ValidatorProtectedRoute>} />
+            <Route path="/validator/records" element={<ValidatorProtectedRoute><ValidatorRecords /></ValidatorProtectedRoute>} />
+            <Route path="/validator/verified" element={<ValidatorProtectedRoute><ValidatorDashboard /></ValidatorProtectedRoute>} />
           
           {/* Verified Officer Routes */}
           <Route path="/officer" element={<OfficerDashboard />} />
@@ -54,6 +59,7 @@ const App = () => (
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

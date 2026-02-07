@@ -10,6 +10,7 @@ import { ArrowLeft, ArrowRight, Check, User, MapPin, FileCheck, Calendar } from 
 import type { CoconutSubmission } from "@/types/coconut";
 import { createCoconutSubmissionId, saveCoconutSubmission } from "@/data/coconutStore";
 import { CoconutMap } from "@/components/CoconutMap";
+import { submitCoconutRegistration } from "@/lib/api";
 import { toast } from "sonner";
 
 const STEPS = [
@@ -22,6 +23,7 @@ export default function CoconutRegistration() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
+  const [submitting, setSubmitting] = useState(false);
   const agentName = user?.name ?? "Agent";
   const [form, setForm] = useState<Partial<CoconutSubmission>>({
     id: createCoconutSubmissionId(),
@@ -49,7 +51,7 @@ export default function CoconutRegistration() {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (step < 3) setStep(step + 1);
     else {
       const full: CoconutSubmission = {
@@ -74,9 +76,38 @@ export default function CoconutRegistration() {
         createdAt: form.createdAt ?? new Date().toISOString(),
         createdBy: form.createdBy ?? user?.id ?? "1",
       };
-      saveCoconutSubmission(full);
-      toast.success("Registration submitted successfully.");
-      navigate("/coconut/entries");
+      setSubmitting(true);
+      try {
+        await submitCoconutRegistration({
+          id: full.id,
+          farmerName: full.farmerName,
+          phone: full.phone,
+          aadhaar: full.aadhaar,
+          agentName: full.agentName,
+          totalAreaHectares: full.totalAreaHectares,
+          areaUnderCoconutHectares: full.areaUnderCoconutHectares,
+          numberOfPlots: full.numberOfPlots,
+          state: full.state,
+          district: full.district,
+          blockTehsilMandal: full.blockTehsilMandal,
+          village: full.village,
+          dateOfPlantation: full.dateOfPlantation,
+          spacing: full.spacing,
+          seedlingsPlanted: full.seedlingsPlanted,
+          seedlingsSurvived: full.seedlingsSurvived,
+          plots: full.plots,
+          mappedAreaAcres: form.mappedAreaAcres,
+          location: form.location,
+          createdBy: full.createdBy,
+        });
+        saveCoconutSubmission(full);
+        toast.success("Registration completed. Record will appear in Data Validator.");
+        navigate("/coconut/entries");
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to submit. Try again.");
+      } finally {
+        setSubmitting(false);
+      }
     }
   };
 
@@ -358,8 +389,8 @@ export default function CoconutRegistration() {
             <ArrowLeft className="h-4 w-4" />
             Previous
           </Button>
-          <Button onClick={handleNext} className="gap-2">
-            {step === 3 ? "Submit Registration" : "Next"}
+          <Button onClick={handleNext} disabled={submitting} className="gap-2">
+            {submitting ? "Submitting…" : step === 3 ? "Submit Registration" : "Next"}
             <ArrowRight className="h-4 w-4" />
           </Button>
         </div>

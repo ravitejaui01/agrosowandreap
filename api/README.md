@@ -18,21 +18,24 @@ Express + PostgreSQL API for the Agroforestry and Field Agent apps.
 | GET | `/api/coconut/:id` | Get one coconut submission |
 | POST | `/api/coconut` | Coconut Plantation Registration – create |
 
-## Local development
+## Local development (save to database)
 
-1. Create a PostgreSQL database (local or Railway).
-2. Copy env and set `DATABASE_URL`:
-   ```bash
-   cp .env.example .env
-   # Edit .env: DATABASE_URL=postgres://user:pass@localhost:5432/dbname
-   ```
-3. Install and run:
-   ```bash
-   npm install
-   npm run db:init   # Apply schema once
-   npm run dev       # Start API (with --watch)
-   ```
-   API: http://localhost:3000
+**One-time setup** (requires [Docker](https://docker.com)):
+
+```bash
+npm run db:setup
+```
+
+This starts PostgreSQL, creates `api/.env`, and applies the schema.
+
+**Or manually:**
+
+1. Start PostgreSQL: `docker-compose up -d`
+2. Copy env: `cp api/.env.example api/.env`
+3. Apply schema: `npm run db:init`
+4. Run: `npm run dev`
+
+API: http://localhost:3000 — data will save to the database.
 
 ## Railway setup
 

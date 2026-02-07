@@ -5,6 +5,7 @@ import users from "./routes/users.js";
 import farmers from "./routes/farmers.js";
 import coconut from "./routes/coconut.js";
 import { query } from "./db/pool.js";
+import { syncCoconutToFarmers } from "./db/syncCoconutToFarmers.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,7 +19,7 @@ app.get("/health", (req, res) => {
 
 app.get("/ready", async (req, res) => {
   try {
-    if (process.env.DATABASE_URL) await query("SELECT 1");
+    if (process.env.DATABASE_URL || process.env.DATABASE_PUBLIC_URL) await query("SELECT 1");
     res.json({ ok: true, db: "connected" });
   } catch (e) {
     res.status(503).json({ ok: false, db: "disconnected", error: e.message });
@@ -34,6 +35,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message || "Internal server error" });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`API listening on port ${PORT}`);
+  syncCoconutToFarmers(); // Auto-sync coconut_submissions → farmer_records on startup
 });
