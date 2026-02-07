@@ -65,15 +65,22 @@ export default function SubmissionDetail() {
               <div><span className="text-gray-400">Name:</span> <span className="text-white">{submission.farmerName}</span></div>
               <div><span className="text-gray-400">Phone:</span> <span className="text-white">{submission.phone}</span></div>
               <div><span className="text-gray-400">Aadhaar:</span> <span className="text-white">{submission.aadhaar}</span></div>
+              {submission.activeStatus != null && submission.activeStatus !== "" && (
+                <div><span className="text-gray-400">Active Status:</span> <span className="text-white">{submission.activeStatus}</span></div>
+              )}
             </dl>
           </div>
 
-          {/* Land Details */}
+          {/* Land Information */}
           <div className="coconut-card rounded-lg p-4 border-green-600/50">
-            <h3 className="text-sm font-semibold text-green-400 mb-3">Land Details</h3>
+            <h3 className="text-sm font-semibold text-green-400 mb-3">Land Information</h3>
             <dl className="space-y-1 text-sm">
+              <div><span className="text-gray-400">Land Ownership:</span> <span className="text-white">{submission.landOwnership ?? "—"}</span></div>
+              <div><span className="text-gray-400">Land Use Before Plantation:</span> <span className="text-white">{submission.landUseBeforePlantation ?? "—"}</span></div>
+              <div><span className="text-gray-400">Tree Clearance Before Plantation:</span> <span className="text-white">{submission.treeClearanceBeforePlantation ?? "—"}</span></div>
               <div><span className="text-gray-400">Total Area Possessed:</span> <span className="text-white">{submission.totalAreaHectares} hectares</span></div>
               <div><span className="text-gray-400">Area Under Coconut:</span> <span className="text-white">{submission.areaUnderCoconutHectares} hectares</span></div>
+              <div><span className="text-gray-400">Land Patta / Survey No.:</span> <span className="text-white">{submission.landPattaSurveyNumber ?? "—"}</span></div>
               <div><span className="text-gray-400">Mapped Area:</span> <span className="text-white">{submission.mappedAreaAcres ?? 0} acres</span></div>
             </dl>
           </div>
@@ -83,20 +90,46 @@ export default function SubmissionDetail() {
             <h3 className="text-sm font-semibold text-green-400 mb-3">Location Details</h3>
             <dl className="space-y-1 text-sm">
               <div><span className="text-gray-400">Village:</span> <span className="text-white">{submission.village}</span></div>
-              <div><span className="text-gray-400">Block/Tehsil:</span> <span className="text-white">{submission.blockTehsilMandal}</span></div>
+              <div><span className="text-gray-400">Block/Tehsil/Mandal:</span> <span className="text-white">{submission.blockTehsilMandal}</span></div>
               <div><span className="text-gray-400">District:</span> <span className="text-white">{submission.district}</span></div>
               <div><span className="text-gray-400">State:</span> <span className="text-white">{submission.state}</span></div>
             </dl>
           </div>
 
-          {/* Plantation Details */}
+          {/* Site & Plantation Details */}
           <div className="coconut-card rounded-lg p-4 border-green-600/50">
-            <h3 className="text-sm font-semibold text-green-400 mb-3">Plantation Details</h3>
+            <h3 className="text-sm font-semibold text-green-400 mb-3">Site & Plantation Details</h3>
             <dl className="space-y-1 text-sm">
-              <div><span className="text-gray-400">Date of Plantation:</span> <span className="text-white">{submission.dateOfPlantation}</span></div>
-              <div><span className="text-gray-400">Spacing:</span> <span className="text-white">{submission.spacing}</span></div>
-              <div><span className="text-gray-400">Seedlings Planted:</span> <span className="text-white">{submission.seedlingsPlanted}</span></div>
-              <div><span className="text-gray-400">Seedlings Survived:</span> <span className="text-white">{submission.seedlingsSurvived}</span></div>
+              <div><span className="text-gray-400">Burning Trees (Site Prep):</span> <span className="text-white">{submission.burningTreesForSitePreparation ?? "—"}</span></div>
+              <div><span className="text-gray-400">Age of Sapling (months):</span> <span className="text-white">{submission.ageOfSaplingMonths ?? "—"}</span></div>
+              <div><span className="text-gray-400">Plantation Model:</span> <span className="text-white">{submission.plantationModel ?? "—"}</span></div>
+              <div><span className="text-gray-400">Source of Nursery:</span> <span className="text-white">{submission.sourceOfNursery ?? "—"}</span></div>
+              <div><span className="text-gray-400">Date of Plantation:</span> <span className="text-white">{submission.dateOfPlantation ?? "—"}</span></div>
+              <div><span className="text-gray-400">Type of Variety:</span> <span className="text-white">{submission.typeOfVariety ?? "—"}</span></div>
+              <div><span className="text-gray-400">Spacing:</span> <span className="text-white">{submission.spacing ?? "—"}</span></div>
+              <div><span className="text-gray-400">Seedlings Planted / Survived:</span> <span className="text-white">{submission.seedlingsPlanted} / {submission.seedlingsSurvived}</span></div>
+              <div><span className="text-gray-400">Size of Pit:</span> <span className="text-white">{submission.sizeOfPit ?? "—"}</span></div>
+              <div><span className="text-gray-400">Mode of Irrigation:</span> <span className="text-white">{submission.modeOfIrrigation ?? "—"}</span></div>
+              <div><span className="text-gray-400">Kharif Crop:</span> <span className="text-white">{submission.kharifCrop ?? "—"}</span>{submission.kharifCropDurationDays != null ? ` (${submission.kharifCropDurationDays} days)` : ""}</div>
+              <div><span className="text-gray-400">Rabi Crop:</span> <span className="text-white">{submission.rabiCrop ?? "—"}</span>{submission.rabiCropDurationDays != null ? ` (${submission.rabiCropDurationDays} days)` : ""}</div>
+            </dl>
+          </div>
+
+          {/* Fertilizer, Cost & Expenses */}
+          <div className="coconut-card rounded-lg p-4 border-green-600/50">
+            <h3 className="text-sm font-semibold text-green-400 mb-3">Fertilizer (kg)</h3>
+            <dl className="space-y-1 text-sm">
+              <div><span className="text-gray-400">N / P / K / Organic / Other:</span></div>
+              <div className="text-white">{[submission.nitrogenQtyKg, submission.phosphorousQtyKg, submission.potassiumQtyKg, submission.organicQtyKg, submission.otherQtyKg].filter((v) => v != null).length ? [submission.nitrogenQtyKg, submission.phosphorousQtyKg, submission.potassiumQtyKg, submission.organicQtyKg, submission.otherQtyKg].join(" / ") : "—"}</div>
+            </dl>
+            <h3 className="text-sm font-semibold text-green-400 mt-3 mb-2">Cost & Expenses</h3>
+            <dl className="space-y-1 text-sm">
+              <div><span className="text-gray-400">Cost of Seedlings:</span> <span className="text-white">{submission.costOfSeedlings ?? "—"}</span></div>
+              <div><span className="text-gray-400">Fencing/Propping/Shading:</span> <span className="text-white">{submission.fencingProppingShading ?? "—"}</span></div>
+              <div><span className="text-gray-400">Land Preparation:</span> <span className="text-white">{submission.landPreparation ?? "—"}</span></div>
+              <div><span className="text-gray-400">Manure / Irrigation / Weed / Plant Protection:</span></div>
+              <div className="text-white">{[submission.manureExpenses, submission.irrigationExpenses, submission.weedManagement, submission.plantProtection].filter((v) => v != null).length ? [submission.manureExpenses, submission.irrigationExpenses, submission.weedManagement, submission.plantProtection].join(" / ") : "—"}</div>
+              <div><span className="text-gray-400">Annual (Fert / Irr / Manpower):</span> <span className="text-white">{[submission.annualFertilizers, submission.annualIrrigations, submission.annualManpower].filter((v) => v != null).length ? [submission.annualFertilizers, submission.annualIrrigations, submission.annualManpower].join(" / ") : "—"}</span></div>
             </dl>
           </div>
 

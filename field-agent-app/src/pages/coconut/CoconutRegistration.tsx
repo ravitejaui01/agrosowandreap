@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, ArrowRight, Check, User, MapPin, FileCheck, Calendar } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, ArrowRight, Check, User, MapPin, FileCheck, Calendar, Leaf, IndianRupee } from "lucide-react";
 import type { CoconutSubmission } from "@/types/coconut";
 import { createCoconutSubmissionId, saveCoconutSubmission } from "@/data/coconutStore";
 import { CoconutMap } from "@/components/CoconutMap";
@@ -14,9 +15,12 @@ import { submitCoconutRegistration } from "@/lib/api";
 import { toast } from "sonner";
 
 const STEPS = [
-  { id: 1, title: "Farmer Details", icon: User },
-  { id: 2, title: "Land Mapping", icon: MapPin },
-  { id: 3, title: "Review & Submit", icon: FileCheck },
+  { id: 1, title: "Basic & Land Info", icon: User },
+  { id: 2, title: "Site & Location", icon: MapPin },
+  { id: 3, title: "Plantation & Crops", icon: Leaf },
+  { id: 4, title: "Fertilizer & Costs", icon: IndianRupee },
+  { id: 5, title: "Land Mapping", icon: MapPin },
+  { id: 6, title: "Review & Submit", icon: FileCheck },
 ];
 
 export default function CoconutRegistration() {
@@ -32,6 +36,15 @@ export default function CoconutRegistration() {
     farmerName: "",
     phone: "",
     aadhaar: "",
+    activeStatus: "active",
+    landOwnership: "",
+    landUseBeforePlantation: "",
+    treeClearanceBeforePlantation: "",
+    burningTreesForSitePreparation: "",
+    ageOfSaplingMonths: undefined,
+    landPattaSurveyNumber: "",
+    plantationModel: "",
+    sourceOfNursery: "",
     totalAreaHectares: 0,
     areaUnderCoconutHectares: 0,
     numberOfPlots: 0,
@@ -39,9 +52,33 @@ export default function CoconutRegistration() {
     blockTehsilMandal: "",
     village: "",
     dateOfPlantation: "",
+    typeOfVariety: "",
     spacing: "",
     seedlingsPlanted: 0,
     seedlingsSurvived: 0,
+    sizeOfPit: "",
+    modeOfIrrigation: "",
+    kharifCrop: "",
+    kharifCropDurationDays: undefined,
+    rabiCrop: "",
+    rabiCropDurationDays: undefined,
+    nitrogenQtyKg: undefined,
+    phosphorousQtyKg: undefined,
+    potassiumQtyKg: undefined,
+    organicQtyKg: undefined,
+    otherQtyKg: undefined,
+    costOfSeedlings: undefined,
+    fencingProppingShading: undefined,
+    landPreparation: undefined,
+    manureExpenses: undefined,
+    irrigationExpenses: undefined,
+    weedManagement: undefined,
+    plantProtection: undefined,
+    agricultureImplements: undefined,
+    manpowerExpenses: undefined,
+    annualFertilizers: undefined,
+    annualIrrigations: undefined,
+    annualManpower: undefined,
     plots: [],
     createdAt: new Date().toISOString(),
     createdBy: user?.id ?? "1",
@@ -52,7 +89,7 @@ export default function CoconutRegistration() {
   };
 
   const handleNext = async () => {
-    if (step < 3) setStep(step + 1);
+    if (step < 6) setStep(step + 1);
     else {
       const full: CoconutSubmission = {
         ...form,
@@ -61,6 +98,15 @@ export default function CoconutRegistration() {
         phone: form.phone ?? "",
         aadhaar: form.aadhaar ?? "",
         agentName: form.agentName ?? agentName,
+        activeStatus: form.activeStatus,
+        landOwnership: form.landOwnership,
+        landUseBeforePlantation: form.landUseBeforePlantation,
+        treeClearanceBeforePlantation: form.treeClearanceBeforePlantation,
+        burningTreesForSitePreparation: form.burningTreesForSitePreparation,
+        ageOfSaplingMonths: form.ageOfSaplingMonths,
+        landPattaSurveyNumber: form.landPattaSurveyNumber,
+        plantationModel: form.plantationModel,
+        sourceOfNursery: form.sourceOfNursery,
         totalAreaHectares: Number(form.totalAreaHectares) || 0,
         areaUnderCoconutHectares: Number(form.areaUnderCoconutHectares) || 0,
         numberOfPlots: Number(form.numberOfPlots) || 0,
@@ -69,37 +115,40 @@ export default function CoconutRegistration() {
         blockTehsilMandal: form.blockTehsilMandal ?? "",
         village: form.village ?? "",
         dateOfPlantation: form.dateOfPlantation ?? "",
+        typeOfVariety: form.typeOfVariety,
         spacing: form.spacing ?? "",
         seedlingsPlanted: Number(form.seedlingsPlanted) || 0,
         seedlingsSurvived: Number(form.seedlingsSurvived) || 0,
+        sizeOfPit: form.sizeOfPit,
+        modeOfIrrigation: form.modeOfIrrigation,
+        kharifCrop: form.kharifCrop,
+        kharifCropDurationDays: form.kharifCropDurationDays,
+        rabiCrop: form.rabiCrop,
+        rabiCropDurationDays: form.rabiCropDurationDays,
+        nitrogenQtyKg: form.nitrogenQtyKg,
+        phosphorousQtyKg: form.phosphorousQtyKg,
+        potassiumQtyKg: form.potassiumQtyKg,
+        organicQtyKg: form.organicQtyKg,
+        otherQtyKg: form.otherQtyKg,
+        costOfSeedlings: form.costOfSeedlings,
+        fencingProppingShading: form.fencingProppingShading,
+        landPreparation: form.landPreparation,
+        manureExpenses: form.manureExpenses,
+        irrigationExpenses: form.irrigationExpenses,
+        weedManagement: form.weedManagement,
+        plantProtection: form.plantProtection,
+        agricultureImplements: form.agricultureImplements,
+        manpowerExpenses: form.manpowerExpenses,
+        annualFertilizers: form.annualFertilizers,
+        annualIrrigations: form.annualIrrigations,
+        annualManpower: form.annualManpower,
         plots: form.plots ?? [],
         createdAt: form.createdAt ?? new Date().toISOString(),
         createdBy: form.createdBy ?? user?.id ?? "1",
       };
       setSubmitting(true);
       try {
-        await submitCoconutRegistration({
-          id: full.id,
-          farmerName: full.farmerName,
-          phone: full.phone,
-          aadhaar: full.aadhaar,
-          agentName: full.agentName,
-          totalAreaHectares: full.totalAreaHectares,
-          areaUnderCoconutHectares: full.areaUnderCoconutHectares,
-          numberOfPlots: full.numberOfPlots,
-          state: full.state,
-          district: full.district,
-          blockTehsilMandal: full.blockTehsilMandal,
-          village: full.village,
-          dateOfPlantation: full.dateOfPlantation,
-          spacing: full.spacing,
-          seedlingsPlanted: full.seedlingsPlanted,
-          seedlingsSurvived: full.seedlingsSurvived,
-          plots: full.plots,
-          mappedAreaAcres: form.mappedAreaAcres,
-          location: form.location,
-          createdBy: full.createdBy,
-        });
+        await submitCoconutRegistration(full);
         saveCoconutSubmission(full);
         toast.success("Registration completed. Record will appear in Data Validator.");
         navigate("/coconut/entries");
@@ -172,159 +221,503 @@ export default function CoconutRegistration() {
           <CardHeader>
             <CardTitle>{STEPS[step - 1].title}</CardTitle>
             <CardDescription>
-              Step {step} of {STEPS.length}
+              Step {step} of {STEPS.length} — {STEPS[step - 1].title}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Step 1: Farmer Details */}
+            {/* Step 1: Basic Information & Land Information */}
             {step === 1 && (
-              <div className="grid sm:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="farmerName">Farmer Name *</Label>
-                  <Input
-                    id="farmerName"
-                    placeholder="Enter full name"
-                    value={form.farmerName ?? ""}
-                    onChange={(e) => update("farmerName", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone Number *</Label>
-                  <Input
-                    id="phone"
-                    placeholder="Enter 10-digit number"
-                    value={form.phone ?? ""}
-                    onChange={(e) => update("phone", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="aadhaar">Aadhaar Number *</Label>
-                  <Input
-                    id="aadhaar"
-                    placeholder="Enter 12-digit Aadhaar number"
-                    value={form.aadhaar ?? ""}
-                    onChange={(e) => update("aadhaar", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="agentName">Agent Name</Label>
-                  <Input
-                    id="agentName"
-                    value={form.agentName ?? agentName}
-                    onChange={(e) => update("agentName", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="totalArea">Total Area Possessed (Hectares) *</Label>
-                  <Input
-                    id="totalArea"
-                    type="number"
-                    placeholder="Enter area in hectares"
-                    value={form.totalAreaHectares || ""}
-                    onChange={(e) => update("totalAreaHectares", e.target.value ? Number(e.target.value) : 0)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="coconutArea">Total Area Under Coconut (Hectares) *</Label>
-                  <Input
-                    id="coconutArea"
-                    type="number"
-                    placeholder="Enter area in hectares"
-                    value={form.areaUnderCoconutHectares || ""}
-                    onChange={(e) => update("areaUnderCoconutHectares", e.target.value ? Number(e.target.value) : 0)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="numPlots">Number of Plots *</Label>
-                  <Input
-                    id="numPlots"
-                    type="number"
-                    placeholder="Enter number of plots"
-                    value={form.numberOfPlots || ""}
-                    onChange={(e) => update("numberOfPlots", e.target.value ? Number(e.target.value) : 0)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="state">State</Label>
-                  <Input
-                    id="state"
-                    value={form.state ?? "Karnataka"}
-                    onChange={(e) => update("state", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="district">District *</Label>
-                  <Input
-                    id="district"
-                    placeholder="Enter district"
-                    value={form.district ?? ""}
-                    onChange={(e) => update("district", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="block">Block/Tehsil/Mandal *</Label>
-                  <Input
-                    id="block"
-                    placeholder="Enter block/tehsil/mandal"
-                    value={form.blockTehsilMandal ?? ""}
-                    onChange={(e) => update("blockTehsilMandal", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="village">Village *</Label>
-                  <Input
-                    id="village"
-                    placeholder="Enter village"
-                    value={form.village ?? ""}
-                    onChange={(e) => update("village", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="datePlantation">Date of Plantation *</Label>
-                  <div className="relative">
-                    <Input
-                      id="datePlantation"
-                      type="date"
-                      value={form.dateOfPlantation ?? ""}
-                      onChange={(e) => update("dateOfPlantation", e.target.value)}
-                    />
-                    <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <div className="space-y-8">
+                <div>
+                  <h3 className="text-sm font-semibold mb-4">Basic Information</h3>
+                  <div className="grid sm:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="farmerName">Farmer Name *</Label>
+                      <Input
+                        id="farmerName"
+                        placeholder="Enter full name"
+                        value={form.farmerName ?? ""}
+                        onChange={(e) => update("farmerName", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Phone Number *</Label>
+                      <Input
+                        id="phone"
+                        placeholder="Enter 10-digit number"
+                        value={form.phone ?? ""}
+                        onChange={(e) => update("phone", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="aadhaar">Aadhaar Number *</Label>
+                      <Input
+                        id="aadhaar"
+                        placeholder="Enter 12-digit Aadhaar number"
+                        value={form.aadhaar ?? ""}
+                        onChange={(e) => update("aadhaar", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="activeStatus">Active Status</Label>
+                      <Select value={form.activeStatus ?? "active"} onValueChange={(v) => update("activeStatus", v)}>
+                        <SelectTrigger id="activeStatus"><SelectValue placeholder="Select status" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="inactive">Inactive</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="agentName">Agent Name</Label>
+                      <Input
+                        id="agentName"
+                        value={form.agentName ?? agentName}
+                        onChange={(e) => update("agentName", e.target.value)}
+                      />
+                    </div>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="spacing">Spacing (m x m)</Label>
-                  <Input
-                    id="spacing"
-                    placeholder="e.g., 7*7"
-                    value={form.spacing ?? ""}
-                    onChange={(e) => update("spacing", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="seedlingsPlanted">Number of Seedlings Planted *</Label>
-                  <Input
-                    id="seedlingsPlanted"
-                    type="number"
-                    placeholder="Enter number of seedlings"
-                    value={form.seedlingsPlanted || ""}
-                    onChange={(e) => update("seedlingsPlanted", e.target.value ? Number(e.target.value) : 0)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="seedlingsSurvived">Number of Seedlings Survived *</Label>
-                  <Input
-                    id="seedlingsSurvived"
-                    type="number"
-                    placeholder="Enter number survived"
-                    value={form.seedlingsSurvived || ""}
-                    onChange={(e) => update("seedlingsSurvived", e.target.value ? Number(e.target.value) : 0)}
-                  />
+                <div>
+                  <h3 className="text-sm font-semibold mb-4">Land Information</h3>
+                  <div className="grid sm:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label>Land Ownership</Label>
+                      <Select value={form.landOwnership ?? ""} onValueChange={(v) => update("landOwnership", v)}>
+                        <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="own">Own</SelectItem>
+                          <SelectItem value="Leased">Leased</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Land Use Before Plantation</Label>
+                      <Select value={form.landUseBeforePlantation ?? ""} onValueChange={(v) => update("landUseBeforePlantation", v)}>
+                        <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Agriculture">Agriculture</SelectItem>
+                          <SelectItem value="Forestry">Forestry</SelectItem>
+                          <SelectItem value="Degraded Land">Degraded Land</SelectItem>
+                          <SelectItem value="Agriculture fallow">Agriculture fallow</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Any Tree Clearance Before Plantation</Label>
+                      <Select value={form.treeClearanceBeforePlantation ?? ""} onValueChange={(v) => update("treeClearanceBeforePlantation", v)}>
+                        <SelectTrigger><SelectValue placeholder="Yes / No" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Yes">Yes</SelectItem>
+                          <SelectItem value="No">No</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* Step 2: Land Mapping */}
+            {/* Step 2: Site & Location Information */}
             {step === 2 && (
+              <div className="space-y-8">
+                <div>
+                  <h3 className="text-sm font-semibold mb-4">Site Preparation</h3>
+                  <div className="grid sm:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label>Burning of Trees for Site Preparation</Label>
+                      <Select value={form.burningTreesForSitePreparation ?? ""} onValueChange={(v) => update("burningTreesForSitePreparation", v)}>
+                        <SelectTrigger><SelectValue placeholder="Yes / No" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Yes">Yes</SelectItem>
+                          <SelectItem value="No">No</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="ageSapling">Age of Sapling (months)</Label>
+                      <Input
+                        id="ageSapling"
+                        type="number"
+                        placeholder="months"
+                        value={form.ageOfSaplingMonths ?? ""}
+                        onChange={(e) => update("ageOfSaplingMonths", e.target.value ? Number(e.target.value) : undefined)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="totalArea">Total Area Possessed (Hectares) *</Label>
+                      <Input
+                        id="totalArea"
+                        type="number"
+                        placeholder="hectares"
+                        value={form.totalAreaHectares || ""}
+                        onChange={(e) => update("totalAreaHectares", e.target.value ? Number(e.target.value) : 0)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="coconutArea">Total Area Under Coconut (Hectares) *</Label>
+                      <Input
+                        id="coconutArea"
+                        type="number"
+                        placeholder="hectares"
+                        value={form.areaUnderCoconutHectares || ""}
+                        onChange={(e) => update("areaUnderCoconutHectares", e.target.value ? Number(e.target.value) : 0)}
+                      />
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label htmlFor="landPatta">Land Patta / Survey Number</Label>
+                      <Input
+                        id="landPatta"
+                        placeholder="Enter land patta or survey number"
+                        value={form.landPattaSurveyNumber ?? ""}
+                        onChange={(e) => update("landPattaSurveyNumber", e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold mb-4">Location Information</h3>
+                  <div className="grid sm:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="village">Village *</Label>
+                      <Input
+                        id="village"
+                        placeholder="Enter village"
+                        value={form.village ?? ""}
+                        onChange={(e) => update("village", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="block">Block / Tehsil / Mandal *</Label>
+                      <Input
+                        id="block"
+                        placeholder="Enter block/tehsil/mandal"
+                        value={form.blockTehsilMandal ?? ""}
+                        onChange={(e) => update("blockTehsilMandal", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="district">District *</Label>
+                      <Input
+                        id="district"
+                        placeholder="Enter district"
+                        value={form.district ?? ""}
+                        onChange={(e) => update("district", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="state">State</Label>
+                      <Input
+                        id="state"
+                        value={form.state ?? "Karnataka"}
+                        onChange={(e) => update("state", e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold mb-4">Plantation Details</h3>
+                  <div className="grid sm:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="plantationModel">Plantation Model</Label>
+                      <Input
+                        id="plantationModel"
+                        placeholder="Type or model of plantation"
+                        value={form.plantationModel ?? ""}
+                        onChange={(e) => update("plantationModel", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="sourceNursery">Source of Nursery</Label>
+                      <Input
+                        id="sourceNursery"
+                        placeholder="Where saplings were obtained"
+                        value={form.sourceOfNursery ?? ""}
+                        onChange={(e) => update("sourceOfNursery", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="numPlots">Number of Plots *</Label>
+                      <Input
+                        id="numPlots"
+                        type="number"
+                        placeholder="Enter number of plots"
+                        value={form.numberOfPlots || ""}
+                        onChange={(e) => update("numberOfPlots", e.target.value ? Number(e.target.value) : 0)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Plantation & Crop Information */}
+            {step === 3 && (
+              <div className="space-y-8">
+                <div>
+                  <h3 className="text-sm font-semibold mb-4">Planting Details</h3>
+                  <div className="grid sm:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="datePlantation">Date of Plantation *</Label>
+                      <div className="relative">
+                        <Input
+                          id="datePlantation"
+                          type="date"
+                          value={form.dateOfPlantation ?? ""}
+                          onChange={(e) => update("dateOfPlantation", e.target.value)}
+                        />
+                        <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="typeVariety">Type of Variety</Label>
+                      <Input
+                        id="typeVariety"
+                        placeholder="Coconut variety"
+                        value={form.typeOfVariety ?? ""}
+                        onChange={(e) => update("typeOfVariety", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="spacing">Spacing (m x m)</Label>
+                      <Input
+                        id="spacing"
+                        placeholder="e.g., 7*7"
+                        value={form.spacing ?? ""}
+                        onChange={(e) => update("spacing", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="seedlingsPlanted">No. of Seedlings Planted *</Label>
+                      <Input
+                        id="seedlingsPlanted"
+                        type="number"
+                        placeholder="Number planted"
+                        value={form.seedlingsPlanted || ""}
+                        onChange={(e) => update("seedlingsPlanted", e.target.value ? Number(e.target.value) : 0)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="seedlingsSurvived">No. of Seedlings Survived *</Label>
+                      <Input
+                        id="seedlingsSurvived"
+                        type="number"
+                        placeholder="Number survived"
+                        value={form.seedlingsSurvived || ""}
+                        onChange={(e) => update("seedlingsSurvived", e.target.value ? Number(e.target.value) : 0)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="sizeOfPit">Size of Pit</Label>
+                      <Input
+                        id="sizeOfPit"
+                        placeholder="e.g., 1m x 1m"
+                        value={form.sizeOfPit ?? ""}
+                        onChange={(e) => update("sizeOfPit", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Mode of Irrigation</Label>
+                      <Select value={form.modeOfIrrigation ?? ""} onValueChange={(v) => update("modeOfIrrigation", v)}>
+                        <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Borewell">Borewell</SelectItem>
+                          <SelectItem value="Sprinkler">Sprinkler</SelectItem>
+                          <SelectItem value="Drip & Irrigation">Drip & Irrigation</SelectItem>
+                          <SelectItem value="Canal">Canal</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold mb-4">Crop Information</h3>
+                  <div className="grid sm:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="kharifCrop">Kharif Crop</Label>
+                      <Input
+                        id="kharifCrop"
+                        placeholder="Crop name"
+                        value={form.kharifCrop ?? ""}
+                        onChange={(e) => update("kharifCrop", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="kharifDuration">Kharif Crop Duration (days)</Label>
+                      <Input
+                        id="kharifDuration"
+                        type="number"
+                        placeholder="days"
+                        value={form.kharifCropDurationDays ?? ""}
+                        onChange={(e) => update("kharifCropDurationDays", e.target.value ? Number(e.target.value) : undefined)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="rabiCrop">Rabi Crop</Label>
+                      <Input
+                        id="rabiCrop"
+                        placeholder="Crop name"
+                        value={form.rabiCrop ?? ""}
+                        onChange={(e) => update("rabiCrop", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="rabiDuration">Rabi Crop Duration (days)</Label>
+                      <Input
+                        id="rabiDuration"
+                        type="number"
+                        placeholder="days"
+                        value={form.rabiCropDurationDays ?? ""}
+                        onChange={(e) => update("rabiCropDurationDays", e.target.value ? Number(e.target.value) : undefined)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Step 4: Fertilizer, Cost & Expenses */}
+            {step === 4 && (
+              <div className="space-y-8">
+                <div>
+                  <h3 className="text-sm font-semibold mb-4">Fertilizer Information (quantity in kg)</h3>
+                  <div className="grid sm:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="nitrogenQty">Nitrogen Fertilizer (kg)</Label>
+                      <Input
+                        id="nitrogenQty"
+                        type="number"
+                        placeholder="kg"
+                        value={form.nitrogenQtyKg ?? ""}
+                        onChange={(e) => update("nitrogenQtyKg", e.target.value ? Number(e.target.value) : undefined)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phosphorousQty">Phosphorous Fertilizer (kg)</Label>
+                      <Input
+                        id="phosphorousQty"
+                        type="number"
+                        placeholder="kg"
+                        value={form.phosphorousQtyKg ?? ""}
+                        onChange={(e) => update("phosphorousQtyKg", e.target.value ? Number(e.target.value) : undefined)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="potassiumQty">Potassium Fertilizer (kg)</Label>
+                      <Input
+                        id="potassiumQty"
+                        type="number"
+                        placeholder="kg"
+                        value={form.potassiumQtyKg ?? ""}
+                        onChange={(e) => update("potassiumQtyKg", e.target.value ? Number(e.target.value) : undefined)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="organicQty">Organic Fertilizer (kg)</Label>
+                      <Input
+                        id="organicQty"
+                        type="number"
+                        placeholder="kg"
+                        value={form.organicQtyKg ?? ""}
+                        onChange={(e) => update("organicQtyKg", e.target.value ? Number(e.target.value) : undefined)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="otherQty">Other Fertilizers (kg)</Label>
+                      <Input
+                        id="otherQty"
+                        type="number"
+                        placeholder="kg"
+                        value={form.otherQtyKg ?? ""}
+                        onChange={(e) => update("otherQtyKg", e.target.value ? Number(e.target.value) : undefined)}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold mb-4">Cost Information</h3>
+                  <div className="grid sm:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="costSeedlings">Cost of Seedlings</Label>
+                      <Input
+                        id="costSeedlings"
+                        type="number"
+                        placeholder="Amount"
+                        value={form.costOfSeedlings ?? ""}
+                        onChange={(e) => update("costOfSeedlings", e.target.value ? Number(e.target.value) : undefined)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="fencingPropping">Fencing / Propping / Shading</Label>
+                      <Input
+                        id="fencingPropping"
+                        type="number"
+                        placeholder="Amount"
+                        value={form.fencingProppingShading ?? ""}
+                        onChange={(e) => update("fencingProppingShading", e.target.value ? Number(e.target.value) : undefined)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="landPrep">Land Preparation</Label>
+                      <Input
+                        id="landPrep"
+                        type="number"
+                        placeholder="Amount"
+                        value={form.landPreparation ?? ""}
+                        onChange={(e) => update("landPreparation", e.target.value ? Number(e.target.value) : undefined)}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold mb-4">Expenses</h3>
+                  <div className="grid sm:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="manureExp">Manure Expenses</Label>
+                      <Input id="manureExp" type="number" placeholder="Amount" value={form.manureExpenses ?? ""} onChange={(e) => update("manureExpenses", e.target.value ? Number(e.target.value) : undefined)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="irrigationExp">Irrigation Expenses</Label>
+                      <Input id="irrigationExp" type="number" placeholder="Amount" value={form.irrigationExpenses ?? ""} onChange={(e) => update("irrigationExpenses", e.target.value ? Number(e.target.value) : undefined)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="weedMgmt">Weed Management</Label>
+                      <Input id="weedMgmt" type="number" placeholder="Amount" value={form.weedManagement ?? ""} onChange={(e) => update("weedManagement", e.target.value ? Number(e.target.value) : undefined)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="plantProt">Plant Protection</Label>
+                      <Input id="plantProt" type="number" placeholder="Amount" value={form.plantProtection ?? ""} onChange={(e) => update("plantProtection", e.target.value ? Number(e.target.value) : undefined)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="agriImpl">Agriculture Implements</Label>
+                      <Input id="agriImpl" type="number" placeholder="Amount" value={form.agricultureImplements ?? ""} onChange={(e) => update("agricultureImplements", e.target.value ? Number(e.target.value) : undefined)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="manpowerExp">Manpower Expenses</Label>
+                      <Input id="manpowerExp" type="number" placeholder="Amount" value={form.manpowerExpenses ?? ""} onChange={(e) => update("manpowerExpenses", e.target.value ? Number(e.target.value) : undefined)} />
+                    </div>
+                  </div>
+                  <h4 className="text-sm font-medium mt-4 mb-2">Annual Expenses</h4>
+                  <div className="grid sm:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="annualFert">Annual Fertilizers</Label>
+                      <Input id="annualFert" type="number" placeholder="Amount" value={form.annualFertilizers ?? ""} onChange={(e) => update("annualFertilizers", e.target.value ? Number(e.target.value) : undefined)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="annualIrr">Annual Irrigations</Label>
+                      <Input id="annualIrr" type="number" placeholder="Amount" value={form.annualIrrigations ?? ""} onChange={(e) => update("annualIrrigations", e.target.value ? Number(e.target.value) : undefined)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="annualMan">Annual Manpower</Label>
+                      <Input id="annualMan" type="number" placeholder="Amount" value={form.annualManpower ?? ""} onChange={(e) => update("annualManpower", e.target.value ? Number(e.target.value) : undefined)} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Step 5: Land Mapping */}
+            {step === 5 && (
               <LandMappingStep
                 form={form}
                 update={update}
@@ -341,13 +734,13 @@ export default function CoconutRegistration() {
                     );
                   } else toast.error("Geolocation not supported");
                 }}
-                onBack={() => setStep(1)}
-                onGoToReview={() => setStep(3)}
+                onBack={() => setStep(4)}
+                onGoToReview={() => setStep(6)}
               />
             )}
 
-            {/* Step 3: Review & Submit */}
-            {step === 3 && (
+            {/* Step 6: Review & Submit */}
+            {step === 6 && (
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">Review your entry before submitting.</p>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
@@ -357,21 +750,69 @@ export default function CoconutRegistration() {
                   <span className="font-medium">{form.phone || "—"}</span>
                   <span className="text-muted-foreground">Aadhaar</span>
                   <span className="font-medium">{form.aadhaar || "—"}</span>
+                  <span className="text-muted-foreground">Active Status</span>
+                  <span className="font-medium">{form.activeStatus || "—"}</span>
+                  <span className="text-muted-foreground">Land Ownership</span>
+                  <span className="font-medium">{form.landOwnership || "—"}</span>
+                  <span className="text-muted-foreground">Land Use Before Plantation</span>
+                  <span className="font-medium">{form.landUseBeforePlantation || "—"}</span>
+                  <span className="text-muted-foreground">Tree Clearance Before Plantation</span>
+                  <span className="font-medium">{form.treeClearanceBeforePlantation || "—"}</span>
+                  <span className="text-muted-foreground">Burning Trees (Site Prep)</span>
+                  <span className="font-medium">{form.burningTreesForSitePreparation || "—"}</span>
+                  <span className="text-muted-foreground">Age of Sapling (months)</span>
+                  <span className="font-medium">{form.ageOfSaplingMonths ?? "—"}</span>
                   <span className="text-muted-foreground">Total Area (ha)</span>
                   <span className="font-medium">{form.totalAreaHectares || "—"}</span>
                   <span className="text-muted-foreground">Area under coconut (ha)</span>
                   <span className="font-medium">{form.areaUnderCoconutHectares || "—"}</span>
-                  <span className="text-muted-foreground">Plots</span>
-                  <span className="font-medium">{form.numberOfPlots || "—"}</span>
-                  <span className="text-muted-foreground">Village / District / State</span>
+                  <span className="text-muted-foreground">Land Patta / Survey No.</span>
+                  <span className="font-medium">{form.landPattaSurveyNumber || "—"}</span>
+                  <span className="text-muted-foreground">Village / Block / District / State</span>
                   <span className="font-medium">
-                    {[form.village, form.district, form.state].filter(Boolean).join(", ") || "—"}
+                    {[form.village, form.blockTehsilMandal, form.district, form.state].filter(Boolean).join(", ") || "—"}
                   </span>
+                  <span className="text-muted-foreground">Plantation Model</span>
+                  <span className="font-medium">{form.plantationModel || "—"}</span>
+                  <span className="text-muted-foreground">Source of Nursery</span>
+                  <span className="font-medium">{form.sourceOfNursery || "—"}</span>
+                  <span className="text-muted-foreground">Plots</span>
+                  <span className="font-medium">{form.numberOfPlots ?? "—"}</span>
                   <span className="text-muted-foreground">Date of Plantation</span>
                   <span className="font-medium">{form.dateOfPlantation || "—"}</span>
+                  <span className="text-muted-foreground">Type of Variety</span>
+                  <span className="font-medium">{form.typeOfVariety || "—"}</span>
+                  <span className="text-muted-foreground">Spacing</span>
+                  <span className="font-medium">{form.spacing || "—"}</span>
                   <span className="text-muted-foreground">Seedlings Planted / Survived</span>
                   <span className="font-medium">
                     {form.seedlingsPlanted} / {form.seedlingsSurvived}
+                  </span>
+                  <span className="text-muted-foreground">Size of Pit</span>
+                  <span className="font-medium">{form.sizeOfPit || "—"}</span>
+                  <span className="text-muted-foreground">Mode of Irrigation</span>
+                  <span className="font-medium">{form.modeOfIrrigation || "—"}</span>
+                  <span className="text-muted-foreground">Kharif Crop / Duration (days)</span>
+                  <span className="font-medium">{form.kharifCrop || "—"} {form.kharifCropDurationDays != null ? ` / ${form.kharifCropDurationDays}` : ""}</span>
+                  <span className="text-muted-foreground">Rabi Crop / Duration (days)</span>
+                  <span className="font-medium">{form.rabiCrop || "—"} {form.rabiCropDurationDays != null ? ` / ${form.rabiCropDurationDays}` : ""}</span>
+                  <span className="text-muted-foreground">Fertilizer (N/P/K/Org/Other kg)</span>
+                  <span className="font-medium">
+                    {[form.nitrogenQtyKg, form.phosphorousQtyKg, form.potassiumQtyKg, form.organicQtyKg, form.otherQtyKg].filter((v) => v != null).length
+                      ? [form.nitrogenQtyKg, form.phosphorousQtyKg, form.potassiumQtyKg, form.organicQtyKg, form.otherQtyKg].join(" / ")
+                      : "—"}
+                  </span>
+                  <span className="text-muted-foreground">Cost (Seedlings / Fencing / Land prep)</span>
+                  <span className="font-medium">
+                    {[form.costOfSeedlings, form.fencingProppingShading, form.landPreparation].some((v) => v != null)
+                      ? [form.costOfSeedlings, form.fencingProppingShading, form.landPreparation].join(" / ")
+                      : "—"}
+                  </span>
+                  <span className="text-muted-foreground">Expenses (Manure / Irrigation / Weed / etc.)</span>
+                  <span className="font-medium">
+                    {[form.manureExpenses, form.irrigationExpenses, form.weedManagement].some((v) => v != null)
+                      ? "Entered"
+                      : "—"}
                   </span>
                 </div>
               </div>
@@ -390,7 +831,7 @@ export default function CoconutRegistration() {
             Previous
           </Button>
           <Button onClick={handleNext} disabled={submitting} className="gap-2">
-            {submitting ? "Submitting…" : step === 3 ? "Submit Registration" : "Next"}
+            {submitting ? "Submitting…" : step === 6 ? "Submit Registration" : "Next"}
             <ArrowRight className="h-4 w-4" />
           </Button>
         </div>

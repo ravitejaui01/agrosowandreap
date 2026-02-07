@@ -32,8 +32,7 @@ This starts PostgreSQL, creates `api/.env`, and applies the schema.
 
 1. Start PostgreSQL: `docker-compose up -d`
 2. Copy env: `cp api/.env.example api/.env`
-3. Apply schema: `npm run db:init`
-4. Run: `npm run dev`
+3. Run: `npm run dev` — schema and migrations run **automatically** on first start (no manual `db:init` needed). Optionally run `npm run db:init` once to apply schema/migrations without starting the server.
 
 API: http://localhost:3000 — data will save to the database.
 

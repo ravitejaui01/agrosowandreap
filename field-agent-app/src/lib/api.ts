@@ -1,8 +1,9 @@
+import type { CoconutSubmission } from "@/types/coconut";
+
 // Use VITE_API_URL if set; else Railway API (production); else "" for local proxy
 const API_BASE = (import.meta.env.VITE_API_URL ?? "https://api-production-de18.up.railway.app").replace(/\/$/, "");
 
-export async function submitCoconutRegistration(data: {
-  id?: string;
+export async function submitCoconutRegistration(data: Partial<CoconutSubmission> & {
   farmerName: string;
   phone: string;
   aadhaar: string;
@@ -10,17 +11,10 @@ export async function submitCoconutRegistration(data: {
   totalAreaHectares: number;
   areaUnderCoconutHectares: number;
   numberOfPlots: number;
-  state?: string;
   district: string;
-  blockTehsilMandal?: string;
   village: string;
-  dateOfPlantation?: string;
-  spacing?: string;
   seedlingsPlanted: number;
   seedlingsSurvived: number;
-  plots?: unknown[];
-  mappedAreaAcres?: number;
-  location?: unknown;
   createdBy: string;
 }) {
   const res = await fetch(`${API_BASE}/api/coconut`, {

@@ -5,6 +5,7 @@ import users from "./routes/users.js";
 import farmers from "./routes/farmers.js";
 import coconut from "./routes/coconut.js";
 import { query } from "./db/pool.js";
+import { ensureDb } from "./db/runMigrations.js";
 import { syncCoconutToFarmers } from "./db/syncCoconutToFarmers.js";
 
 const app = express();
@@ -37,5 +38,6 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, async () => {
   console.log(`API listening on port ${PORT}`);
+  await ensureDb(); // Auto-apply schema + migrations (no manual db:init needed)
   syncCoconutToFarmers(); // Auto-sync coconut_submissions → farmer_records on startup
 });

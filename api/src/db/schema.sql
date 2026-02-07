@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS coconut_submissions (
   phone TEXT,
   aadhaar TEXT,
   agent_name TEXT NOT NULL,
+  active_status TEXT,
   total_area_hectares NUMERIC,
   area_under_coconut_hectares NUMERIC,
   number_of_plots INT,
@@ -76,7 +77,45 @@ CREATE TABLE IF NOT EXISTS coconut_submissions (
   mapped_area_acres NUMERIC,
   location JSONB,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by TEXT NOT NULL
+  created_by TEXT NOT NULL,
+  -- Land information
+  land_ownership TEXT,
+  land_use_before_plantation TEXT,
+  tree_clearance_before_plantation TEXT,
+  -- Site preparation
+  burning_trees_for_site_preparation TEXT,
+  age_of_sapling_months INT,
+  land_patta_survey_number TEXT,
+  plantation_model TEXT,
+  source_of_nursery TEXT,
+  -- Planting & irrigation
+  type_of_variety TEXT,
+  size_of_pit TEXT,
+  mode_of_irrigation TEXT,
+  kharif_crop TEXT,
+  kharif_crop_duration_days INT,
+  rabi_crop TEXT,
+  rabi_crop_duration_days INT,
+  -- Fertilizer (kg)
+  nitrogen_qty_kg NUMERIC,
+  phosphorous_qty_kg NUMERIC,
+  potassium_qty_kg NUMERIC,
+  organic_qty_kg NUMERIC,
+  other_qty_kg NUMERIC,
+  -- Cost
+  cost_of_seedlings NUMERIC,
+  fencing_propping_shading NUMERIC,
+  land_preparation NUMERIC,
+  -- Expenses
+  manure_expenses NUMERIC,
+  irrigation_expenses NUMERIC,
+  weed_management NUMERIC,
+  plant_protection NUMERIC,
+  agriculture_implements NUMERIC,
+  manpower_expenses NUMERIC,
+  annual_fertilizers NUMERIC,
+  annual_irrigations NUMERIC,
+  annual_manpower NUMERIC
 );
 
 -- Indexes
