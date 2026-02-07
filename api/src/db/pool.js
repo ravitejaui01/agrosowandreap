@@ -1,5 +1,11 @@
 import pg from "pg";
-import "dotenv/config";
+import { config } from "dotenv";
+import { dirname, join } from "path";
+import { fileURLToPath } from "url";
+
+// Load api/.env so DATABASE_URL is set even when process cwd is project root
+const __dirname = dirname(fileURLToPath(import.meta.url));
+config({ path: join(__dirname, "../../.env") });
 
 const { Pool } = pg;
 
@@ -20,9 +26,15 @@ if (!connectionString) {
   );
 }
 
+// Railway Postgres (including rlwy.net public proxy) requires SSL
+const needsSsl = connectionString && (
+  connectionString.includes("railway") ||
+  connectionString.includes("rlwy.net")
+);
+
 export const pool = new Pool({
   connectionString,
-  ssl: connectionString?.includes("railway") ? { rejectUnauthorized: false } : undefined,
+  ssl: needsSsl ? { rejectUnauthorized: false } : undefined,
   max: 10,
   idleTimeoutMillis: 30000,
 });

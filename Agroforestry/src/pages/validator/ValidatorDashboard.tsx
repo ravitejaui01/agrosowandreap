@@ -10,10 +10,12 @@ export default function ValidatorDashboard() {
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ["validator-stats"],
     queryFn: getFarmerStats,
+    refetchInterval: 30000,
   });
   const { data: allRecords = [], isLoading: recordsLoading } = useQuery({
     queryKey: ["validator-farmer-records"],
     queryFn: () => getFarmerRecords(),
+    refetchInterval: 30000, // Auto-refresh so new Coconut Registrations appear automatically
   });
 
   const reviewQueue = allRecords.filter(

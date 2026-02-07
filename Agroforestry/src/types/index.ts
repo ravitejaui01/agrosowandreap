@@ -48,6 +48,23 @@ export interface FarmerRecord {
   
   // Validation History
   validationHistory: ValidationEntry[];
+  
+  // Mirrored from coconut_submissions when record comes from Field Agent Coconut Registration
+  blockTehsilMandal?: string;
+  dateOfPlantation?: string;
+  seedlingsPlanted?: number;
+  seedlingsSurvived?: number;
+  agentName?: string;
+  totalAreaHectares?: number;
+  areaUnderCoconutHectares?: number;
+  landOwnership?: string;
+  landUseBeforePlantation?: string;
+  typeOfVariety?: string;
+  plantationModel?: string;
+  activeStatus?: string;
+  spacing?: string;
+  modeOfIrrigation?: string;
+  numberOfPlots?: number;
 }
 
 export interface Document {

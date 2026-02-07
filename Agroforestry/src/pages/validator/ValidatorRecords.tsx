@@ -31,6 +31,7 @@ export default function ValidatorRecords() {
   const { data: records = [], isLoading } = useQuery({
     queryKey: ["validator-farmer-records"],
     queryFn: () => getFarmerRecords(),
+    refetchInterval: 30000, // Auto-refresh every 30s so new Coconut Registrations appear automatically
   });
 
   const filteredRecords = useMemo(() => {

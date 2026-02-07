@@ -100,8 +100,11 @@ router.post("/sync-to-farmers", async (req, res) => {
         `INSERT INTO farmer_records (
           id, farmer_id, first_name, last_name, national_id, phone_number,
           village, district, region, country, land_size, land_unit, crop_types,
-          farming_type, status, created_by
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'submitted', $15)
+          farming_type, status, created_by,
+          block_tehsil_mandal, date_of_plantation, seedlings_planted, seedlings_survived, agent_name,
+          total_area_hectares, area_under_coconut_hectares, land_ownership, land_use_before_plantation,
+          type_of_variety, plantation_model, active_status, spacing, mode_of_irrigation, number_of_plots
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'submitted', $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)
         ON CONFLICT (id) DO NOTHING`,
         [
           farmerRecordId,
@@ -119,6 +122,21 @@ router.post("/sync-to-farmers", async (req, res) => {
           ["coconut"],
           "commercial",
           createdBy,
+          row.block_tehsil_mandal ?? null,
+          row.date_of_plantation ?? null,
+          row.seedlings_planted ?? null,
+          row.seedlings_survived ?? null,
+          row.agent_name ?? agentName,
+          row.total_area_hectares ?? null,
+          row.area_under_coconut_hectares ?? null,
+          row.land_ownership ?? null,
+          row.land_use_before_plantation ?? null,
+          row.type_of_variety ?? null,
+          row.plantation_model ?? null,
+          row.active_status ?? null,
+          row.spacing ?? null,
+          row.mode_of_irrigation ?? null,
+          row.number_of_plots ?? null,
         ]
       );
       synced++;
@@ -159,15 +177,19 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+// Field Agent Coconut Plantation Registration:
+// 1. Record is saved to coconut_submissions (and shown on Field Agent Coconut Plantation / Entries screen).
+// 2. A row is also created in farmer_records so it appears in Data Validator login → Farmer Records table.
 router.post("/", async (req, res) => {
   const b = req.body ?? {};
   const hasDb = !!(process.env.DATABASE_URL || process.env.DATABASE_PUBLIC_URL);
 
-  // When DB is not configured, use fallback immediately (avoids pg connection errors)
+  // No DB: save to fallback store (coconutSubmissions in memory + file), NOT to PostgreSQL
   if (!hasDb) {
+    console.log("[coconut] No DATABASE_URL — saving to fallback store (not PostgreSQL).");
     try {
       const coconut = addCoconutSubmission(b);
-      return res.status(201).json(coconut);
+      return res.status(201).json({ ...coconut, _savedTo: "fallback" }); // so client can tell it's not in DB
     } catch (err) {
       console.error("Coconut POST fallback (no DB):", err);
       return res.status(500).json({ error: err.message });
@@ -175,6 +197,8 @@ router.post("/", async (req, res) => {
   }
 
   try {
+    // Save to coconut_submissions table (and create farmer_record for validator)
+    console.log("[coconut] Saving to PostgreSQL coconut_submissions...");
     const id = b.id ?? `coc-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     const createdBy = b.createdBy ?? b.created_by ?? "field-agent-1";
     const agentName = b.agentName ?? b.agent_name ?? "Field Agent";
@@ -238,7 +262,7 @@ router.post("/", async (req, res) => {
         agriculture_implements, manpower_expenses, annual_fertilizers, annual_irrigations, annual_manpower
       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,
         $22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,
-        $43,$44,$45,$46,$47,$48,$49,$50,$51,$52,$53,$54,$55,$56)`,
+        $43,$44,$45,$46,$47,$48,$49,$50,$51,$52,$53)`,
       [
         id,
         farmerName,
@@ -296,16 +320,23 @@ router.post("/", async (req, res) => {
       ]
     );
 
-    // Create farmer_record so it appears in Data Validator Farmer Records table
+    // Create farmer_record so it appears in Data Validator Farmer Records table (mirror coconut fields)
     const [firstName, ...lastParts] = (farmerName || "Unknown").trim().split(/\s+/);
     const lastName = lastParts.join(" ") || "-";
     const farmerRecordId = `farmer-${id}`;
+    const blockTehsil = b.blockTehsilMandal ?? b.block_tehsil_mandal ?? null;
+    const dateOfPlantation = b.dateOfPlantation ?? b.date_of_plantation ?? null;
+    const seedlingsPlanted = b.seedlingsPlanted ?? b.seedlings_planted ?? null;
+    const seedlingsSurvived = b.seedlingsSurvived ?? b.seedlings_survived ?? null;
     await query(
       `INSERT INTO farmer_records (
         id, farmer_id, first_name, last_name, national_id, phone_number,
         village, district, region, country, land_size, land_unit, crop_types,
-        farming_type, status, created_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'submitted', $15)`,
+        farming_type, status, created_by,
+        block_tehsil_mandal, date_of_plantation, seedlings_planted, seedlings_survived, agent_name,
+        total_area_hectares, area_under_coconut_hectares, land_ownership, land_use_before_plantation,
+        type_of_variety, plantation_model, active_status, spacing, mode_of_irrigation, number_of_plots
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'submitted', $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)`,
       [
         farmerRecordId,
         id,
@@ -322,21 +353,35 @@ router.post("/", async (req, res) => {
         ["coconut"],
         "commercial",
         createdBy,
+        blockTehsil,
+        dateOfPlantation,
+        seedlingsPlanted,
+        seedlingsSurvived,
+        agentName,
+        b.totalAreaHectares ?? b.total_area_hectares ?? null,
+        b.areaUnderCoconutHectares ?? b.area_under_coconut_hectares ?? null,
+        b.landOwnership ?? b.land_ownership ?? null,
+        b.landUseBeforePlantation ?? b.land_use_before_plantation ?? null,
+        b.typeOfVariety ?? b.type_of_variety ?? null,
+        b.plantationModel ?? b.plantation_model ?? null,
+        b.activeStatus ?? b.active_status ?? null,
+        b.spacing ?? null,
+        b.modeOfIrrigation ?? b.mode_of_irrigation ?? null,
+        b.numberOfPlots ?? b.number_of_plots ?? null,
       ]
     );
 
     const created = await query("SELECT * FROM coconut_submissions WHERE id = $1", [id]);
-    return res.status(201).json(rowToCoconut(created.rows[0]));
+    console.log("[coconut] Saved to PostgreSQL coconut_submissions, id:", id);
+    return res.status(201).json({ ...rowToCoconut(created.rows[0]), _savedTo: "database" });
   } catch (err) {
-    // Fallback: save to in-memory store when DB is unavailable (no setup needed)
-    console.warn("Coconut POST: DB unavailable, using fallback store:", err.message);
-    try {
-      const coconut = addCoconutSubmission(b);
-      return res.status(201).json(coconut);
-    } catch (fallbackErr) {
-      console.error("Coconut POST fallback error:", fallbackErr);
-      return res.status(500).json({ error: fallbackErr.message });
-    }
+    // DB is configured but INSERT failed — return 503 so client knows data did NOT save (do not fall back to in-memory)
+    console.error("[coconut] INSERT failed. Data NOT saved to database. Code:", err.code, "Message:", err.message, err.detail || "");
+    return res.status(503).json({
+      error: "Database save failed. Record was not saved and will not appear in Data Validator.",
+      detail: err.message,
+      code: err.code,
+    });
   }
 });
 

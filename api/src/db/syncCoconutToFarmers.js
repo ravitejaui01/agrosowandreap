@@ -24,8 +24,11 @@ export async function syncCoconutToFarmers() {
         `INSERT INTO farmer_records (
           id, farmer_id, first_name, last_name, national_id, phone_number,
           village, district, region, country, land_size, land_unit, crop_types,
-          farming_type, status, created_by
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'submitted', $15)
+          farming_type, status, created_by,
+          block_tehsil_mandal, date_of_plantation, seedlings_planted, seedlings_survived, agent_name,
+          total_area_hectares, area_under_coconut_hectares, land_ownership, land_use_before_plantation,
+          type_of_variety, plantation_model, active_status, spacing, mode_of_irrigation, number_of_plots
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'submitted', $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)
         ON CONFLICT (id) DO NOTHING`,
         [
           farmerRecordId,
@@ -43,6 +46,21 @@ export async function syncCoconutToFarmers() {
           ["coconut"],
           "commercial",
           createdBy,
+          row.block_tehsil_mandal ?? null,
+          row.date_of_plantation ?? null,
+          row.seedlings_planted ?? null,
+          row.seedlings_survived ?? null,
+          row.agent_name ?? agentName,
+          row.total_area_hectares ?? null,
+          row.area_under_coconut_hectares ?? null,
+          row.land_ownership ?? null,
+          row.land_use_before_plantation ?? null,
+          row.type_of_variety ?? null,
+          row.plantation_model ?? null,
+          row.active_status ?? null,
+          row.spacing ?? null,
+          row.mode_of_irrigation ?? null,
+          row.number_of_plots ?? null,
         ]
       );
       synced++;

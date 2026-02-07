@@ -53,6 +53,22 @@ function rowToFarmer(row, documents = [], validationHistory = []) {
     createdAt: row.created_at?.toISOString?.() ?? row.created_at,
     updatedAt: row.updated_at?.toISOString?.() ?? row.updated_at,
     validationHistory: validationHistory.map(rowToValidation),
+    // Mirrored from coconut_submissions when record comes from Field Agent Coconut Registration
+    blockTehsilMandal: row.block_tehsil_mandal ?? undefined,
+    dateOfPlantation: row.date_of_plantation?.toISOString?.()?.slice(0, 10) ?? row.date_of_plantation ?? undefined,
+    seedlingsPlanted: row.seedlings_planted != null ? Number(row.seedlings_planted) : undefined,
+    seedlingsSurvived: row.seedlings_survived != null ? Number(row.seedlings_survived) : undefined,
+    agentName: row.agent_name ?? undefined,
+    totalAreaHectares: row.total_area_hectares != null ? Number(row.total_area_hectares) : undefined,
+    areaUnderCoconutHectares: row.area_under_coconut_hectares != null ? Number(row.area_under_coconut_hectares) : undefined,
+    landOwnership: row.land_ownership ?? undefined,
+    landUseBeforePlantation: row.land_use_before_plantation ?? undefined,
+    typeOfVariety: row.type_of_variety ?? undefined,
+    plantationModel: row.plantation_model ?? undefined,
+    activeStatus: row.active_status ?? undefined,
+    spacing: row.spacing ?? undefined,
+    modeOfIrrigation: row.mode_of_irrigation ?? undefined,
+    numberOfPlots: row.number_of_plots != null ? Number(row.number_of_plots) : undefined,
   };
 }
 

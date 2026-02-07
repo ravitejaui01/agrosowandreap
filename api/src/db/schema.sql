@@ -31,7 +31,23 @@ CREATE TABLE IF NOT EXISTS farmer_records (
   status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','submitted','under_review','corrections_needed','verified','approved','rejected')),
   created_by TEXT NOT NULL REFERENCES users(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  -- Mirrored from coconut_submissions when record comes from Field Agent Coconut Registration
+  block_tehsil_mandal TEXT,
+  date_of_plantation DATE,
+  seedlings_planted INT,
+  seedlings_survived INT,
+  agent_name TEXT,
+  total_area_hectares NUMERIC,
+  area_under_coconut_hectares NUMERIC,
+  land_ownership TEXT,
+  land_use_before_plantation TEXT,
+  type_of_variety TEXT,
+  plantation_model TEXT,
+  active_status TEXT,
+  spacing TEXT,
+  mode_of_irrigation TEXT,
+  number_of_plots INT
 );
 
 CREATE TABLE IF NOT EXISTS documents (
@@ -117,6 +133,20 @@ CREATE TABLE IF NOT EXISTS coconut_submissions (
   annual_irrigations NUMERIC,
   annual_manpower NUMERIC
 );
+
+-- Rules (validation/business rules)
+CREATE TABLE IF NOT EXISTS rules (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT,
+  globs TEXT,
+  always_apply BOOLEAN DEFAULT FALSE,
+  content TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_rules_always_apply ON rules(always_apply);
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_farmer_records_status ON farmer_records(status);

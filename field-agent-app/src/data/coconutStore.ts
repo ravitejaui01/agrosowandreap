@@ -1,6 +1,7 @@
 import type { CoconutSubmission } from "@/types/coconut";
 
 const STORAGE_KEY = "coconut_submissions";
+const DRAFT_KEY = "coconut_registration_draft";
 
 export function getCoconutSubmissions(agentId?: string): CoconutSubmission[] {
   try {
@@ -28,4 +29,30 @@ export function saveCoconutSubmission(data: CoconutSubmission): void {
 
 export function createCoconutSubmissionId(): string {
   return `CP-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+/** Auto-save: persist in-progress registration so it can be restored. */
+export function saveCoconutDraft(data: Partial<CoconutSubmission>): void {
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(data));
+  } catch {
+    // ignore
+  }
+}
+
+export function getCoconutDraft(): Partial<CoconutSubmission> | null {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearCoconutDraft(): void {
+  try {
+    localStorage.removeItem(DRAFT_KEY);
+  } catch {
+    // ignore
+  }
 }

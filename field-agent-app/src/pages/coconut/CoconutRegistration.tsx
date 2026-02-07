@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, ArrowRight, Check, User, MapPin, FileCheck, Calendar, Leaf, IndianRupee } from "lucide-react";
 import type { CoconutSubmission } from "@/types/coconut";
-import { createCoconutSubmissionId, saveCoconutSubmission } from "@/data/coconutStore";
+import { createCoconutSubmissionId, saveCoconutSubmission, saveCoconutDraft, getCoconutDraft, clearCoconutDraft } from "@/data/coconutStore";
 import { CoconutMap } from "@/components/CoconutMap";
 import { submitCoconutRegistration } from "@/lib/api";
 import { toast } from "sonner";
@@ -88,6 +88,30 @@ export default function CoconutRegistration() {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
+  // Restore draft on mount (auto-saved earlier)
+  useEffect(() => {
+    const draft = getCoconutDraft();
+    if (draft && typeof draft === "object" && Object.keys(draft).length > 0) {
+      setForm((prev) => ({ ...prev, ...draft }));
+      const stepNum = typeof (draft as { _draftStep?: number })._draftStep === "number"
+        ? (draft as { _draftStep: number })._draftStep
+        : 1;
+      setStep(Math.min(Math.max(1, stepNum), 6));
+    }
+  }, []);
+
+  // Auto-save draft when form or step changes (debounced)
+  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    draftTimerRef.current && clearTimeout(draftTimerRef.current);
+    draftTimerRef.current = setTimeout(() => {
+      saveCoconutDraft({ ...form, _draftStep: step });
+    }, 800);
+    return () => {
+      if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    };
+  }, [form, step]);
+
   const handleNext = async () => {
     if (step < 6) setStep(step + 1);
     else {
@@ -148,9 +172,17 @@ export default function CoconutRegistration() {
       };
       setSubmitting(true);
       try {
-        await submitCoconutRegistration(full);
-        saveCoconutSubmission(full);
-        toast.success("Registration completed. Record will appear in Data Validator.");
+        const payload = { ...full } as Record<string, unknown>;
+        delete payload._draftStep; // draft-only, not sent to API
+        const result = await submitCoconutRegistration(payload as CoconutSubmission) as { _savedTo?: string };
+        if (result._savedTo === "fallback") {
+          toast.error("Record was not saved to the database. It will not appear in Data Validator. Set DATABASE_PUBLIC_URL on the API (e.g. Railway Variables) and try again.");
+          setSubmitting(false);
+          return;
+        }
+        saveCoconutSubmission(payload as CoconutSubmission);
+        clearCoconutDraft();
+        toast.success("Registration completed. Record saved to database and will appear in Data Validator Farmer Records.");
         navigate("/coconut/entries");
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to submit. Try again.");
@@ -743,6 +775,9 @@ export default function CoconutRegistration() {
             {step === 6 && (
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">Review your entry before submitting.</p>
+                <p className="text-xs text-muted-foreground rounded-md bg-muted/50 px-3 py-2 border border-border">
+                  Your progress is saved as a draft on this device. When you click <strong>Submit Registration</strong> below, this data will be sent to the server and saved to <strong>coconut_submissions</strong> (and will appear in Coconut Entries and Data Validator).
+                </p>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                   <span className="text-muted-foreground">Farmer Name</span>
                   <span className="font-medium">{form.farmerName || "—"}</span>

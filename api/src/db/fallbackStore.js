@@ -66,6 +66,22 @@ function coconutToFarmerRecord(coconut, farmerRecordId) {
     updatedAt: now,
     documents: [],
     validationHistory: [],
+    // Coconut mirror fields
+    blockTehsilMandal: coconut.blockTehsilMandal ?? coconut.block_tehsil_mandal ?? null,
+    dateOfPlantation: coconut.dateOfPlantation ?? coconut.date_of_plantation ?? null,
+    seedlingsPlanted: coconut.seedlingsPlanted ?? coconut.seedlings_planted ?? null,
+    seedlingsSurvived: coconut.seedlingsSurvived ?? coconut.seedlings_survived ?? null,
+    agentName: coconut.agentName ?? coconut.agent_name ?? null,
+    totalAreaHectares: coconut.totalAreaHectares ?? coconut.total_area_hectares ?? null,
+    areaUnderCoconutHectares: coconut.areaUnderCoconutHectares ?? coconut.area_under_coconut_hectares ?? null,
+    landOwnership: coconut.landOwnership ?? coconut.land_ownership ?? null,
+    landUseBeforePlantation: coconut.landUseBeforePlantation ?? coconut.land_use_before_plantation ?? null,
+    typeOfVariety: coconut.typeOfVariety ?? coconut.type_of_variety ?? null,
+    plantationModel: coconut.plantationModel ?? coconut.plantation_model ?? null,
+    activeStatus: coconut.activeStatus ?? coconut.active_status ?? null,
+    spacing: coconut.spacing ?? null,
+    modeOfIrrigation: coconut.modeOfIrrigation ?? coconut.mode_of_irrigation ?? null,
+    numberOfPlots: coconut.numberOfPlots ?? coconut.number_of_plots ?? null,
   };
 }
 
@@ -168,5 +184,20 @@ export function getFarmerRecordsFromFallback() {
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
     validationHistory: r.validationHistory ?? [],
+    blockTehsilMandal: r.blockTehsilMandal,
+    dateOfPlantation: r.dateOfPlantation,
+    seedlingsPlanted: r.seedlingsPlanted,
+    seedlingsSurvived: r.seedlingsSurvived,
+    agentName: r.agentName,
+    totalAreaHectares: r.totalAreaHectares,
+    areaUnderCoconutHectares: r.areaUnderCoconutHectares,
+    landOwnership: r.landOwnership,
+    landUseBeforePlantation: r.landUseBeforePlantation,
+    typeOfVariety: r.typeOfVariety,
+    plantationModel: r.plantationModel,
+    activeStatus: r.activeStatus,
+    spacing: r.spacing,
+    modeOfIrrigation: r.modeOfIrrigation,
+    numberOfPlots: r.numberOfPlots,
   }));
 }

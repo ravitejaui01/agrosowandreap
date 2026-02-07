@@ -17,24 +17,59 @@ Express + PostgreSQL API for the Agroforestry and Field Agent apps.
 | GET | `/api/coconut/stats` | Coconut Plantation – dashboard stats |
 | GET | `/api/coconut/:id` | Get one coconut submission |
 | POST | `/api/coconut` | Coconut Plantation Registration – create |
+| POST | `/api/coconut/sync-to-farmers` | Sync `coconut_submissions` → `farmer_records` (manual) |
+| GET/POST | `/api/rules` | List / create rules |
+| GET | `/api/rules/:id` | Get one rule |
+| PATCH | `/api/rules/:id` | Update rule |
+| DELETE | `/api/rules/:id` | Delete rule |
 
-## Local development (save to database)
+**Scheduled sync:** The API automatically syncs `coconut_submissions` to `farmer_records` on startup and every 5 minutes. To change the schedule, set `COCONUT_SYNC_CRON` (e.g. `*/10 * * * *` for every 10 min). Set `COCONUT_SYNC_CRON=0` to disable scheduled sync.
 
-**One-time setup** (requires [Docker](https://docker.com)):
+## Use a remote database (no local Docker)
 
-```bash
-npm run db:setup
-```
+1. Create a PostgreSQL database (e.g. [Railway](https://railway.app) → New → Database → PostgreSQL, or Neon, Supabase, etc.).
+2. Copy the **connection URL** (often called `DATABASE_URL` or `DATABASE_PUBLIC_URL`). It looks like:
+   `postgres://USER:PASSWORD@HOST:5432/DATABASE?sslmode=require`
+3. In `api/.env` set:
+   ```bash
+   DATABASE_URL=postgres://...your-remote-url...
+   ```
+4. Start the API: `npm run dev` (from repo root) or `cd api && npm run dev`. Schema and migrations run automatically; data saves to your remote DB.
 
-This starts PostgreSQL, creates `api/.env`, and applies the schema.
+**DBeaver (or any client)** — connect using the same URL:
+- **Host:** from the URL (e.g. `roundhouse.proxy.rlwy.net` for Railway)
+- **Port:** 5432 (or the one in the URL)
+- **Database:** database name from the URL
+- **Username / Password:** from the URL
+- **SSL:** enable (e.g. require or verify-full) for cloud Postgres
 
-**Or manually:**
+No local Docker or `docker-compose` needed.
 
-1. Start PostgreSQL: `docker-compose up -d`
-2. Copy env: `cp api/.env.example api/.env`
-3. Run: `npm run dev` — schema and migrations run **automatically** on first start (no manual `db:init` needed). Optionally run `npm run db:init` once to apply schema/migrations without starting the server.
+---
 
-API: http://localhost:3000 — data will save to the database.
+## Optional: local development with Docker
+
+If you prefer local PostgreSQL:
+
+1. Run: `docker-compose up -d`
+2. In `api/.env`: `DATABASE_URL=postgres://agroforestry:agroforestry@localhost:5432/agroforestry`
+3. Run: `npm run dev`. API: http://localhost:3000 — data saves to the local database.
+
+### Records not saving to `coconut_submissions` table?
+
+- **Check API startup log.** If you see *"No DATABASE_URL set — coconut submissions will use fallback store"*, the API is **not** using PostgreSQL. Submissions go to in-memory/fallback only.
+- **Fix:**  
+  1. Start Postgres: `docker-compose up -d`  
+  2. Ensure `api/.env` has `DATABASE_URL=postgres://agroforestry:agroforestry@localhost:5432/agroforestry` (or your DB URL)  
+  3. Restart the API. You should see *"Database: using PostgreSQL (coconut_submissions table)"*.
+- **Field Agent app:** For local dev, leave `VITE_API_URL` unset in `field-agent-app/.env` so the app uses the Vite proxy and sends submissions to your local API (port 3000). If the app points at a different API (e.g. production), submissions go to that server’s DB, not your local one.
+
+**Check where data went:** When you submit a registration, watch the **API terminal**. You should see either:
+- `[coconut] Saving to PostgreSQL coconut_submissions...` then `[coconut] Saved to PostgreSQL coconut_submissions, id: ...` → data is in the DB.
+- `[coconut] No DATABASE_URL — saving to fallback store` → data is only in memory/file, not in PostgreSQL.
+- `[coconut] INSERT failed. Data NOT saved to database. ...` → API returns 503; fix the DB/error and try again.
+
+**Verify rows:** Use DBeaver (or any client) connected to your **remote** database → open table `coconut_submissions`. For local Docker only: `docker exec -it $(docker ps -q -f name=db) psql -U agroforestry -d agroforestry -c "SELECT id, farmer_name FROM coconut_submissions;"`
 
 ## Railway setup
 
@@ -51,8 +86,17 @@ API: http://localhost:3000 — data will save to the database.
    - **Root Directory**: set to `api` (so Railway uses `api/package.json` and runs from `api/`).
    - **Build Command**: leave default (Nixpacks will run `npm install`).
    - **Start Command**: `npm run db:init && npm start` (or leave default if you set it in `railway.json`).
-4. **Variables**: Use the **public** DB URL so the API can resolve the host. In Railway: **API service** → **Variables** → **Add Variable** → **Reference** → select **Postgres** → choose **`DATABASE_PUBLIC_URL`** (not `DATABASE_URL`; the internal URL can cause `ENOTFOUND`).
-5. Deploy: Railway will build and deploy. On first start, `db:init` creates the tables.
+4. **Variables (required for data to save to Postgres):** The API service must have the database URL. In Railway: **API service** → **Variables** → **Add Variable** → **Reference** → select your **Postgres** service → choose **`DATABASE_PUBLIC_URL`**. Add it with that exact name. Without this, coconut submissions go to fallback store only and are **not** saved to the database.
+5. Deploy: Railway will build and deploy. On first start, schema/migrations run automatically.
+
+**Data still not in database?** Check the **API service logs** (Deployments → latest → View Logs). You should see either:
+- `Database: connected to PostgreSQL. coconut_submissions will be used.` → DB is connected; if data still doesn’t appear, look for `[coconut] INSERT failed` and the error message.
+- `Database: DATABASE_URL / DATABASE_PUBLIC_URL not set` → Add the variable in step 4 and redeploy.
+- `Database: PostgreSQL connection failed` → Check the error; often the API needs `DATABASE_PUBLIC_URL` (not the internal URL).
+
+**Data still not in DB?** Both frontends must call the **same Railway API** (the one that has `DATABASE_PUBLIC_URL` set):
+- **Field Agent:** In `field-agent-app/.env` set `VITE_API_URL=https://your-railway-api.up.railway.app` (no trailing slash). If unset, the app sends to localhost and submissions never reach Railway.
+- **Data Validator (Agroforestry):** Set `VITE_API_URL` to the same Railway API URL when building/deploying Agroforestry so Farmer Records and stats load from the same database.
 
 ### 3. Get the API URL
 
