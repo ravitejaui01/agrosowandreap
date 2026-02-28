@@ -1,12 +1,24 @@
-// Dev: "" = proxy forwards /api to Railway. Production: full Railway URL
+// Dev: "" = proxy forwards /api (set VITE_PROXY_TARGET=http://localhost:3000 to use local API). Production: full Railway URL
 const API_BASE = (
   import.meta.env.VITE_API_URL ??
   (import.meta.env.DEV ? "" : "https://api-production-de18.up.railway.app")
 ).replace(/\/$/, "");
 
+async function checkOk(r: Response) {
+  if (r.ok) return;
+  let msg = r.statusText;
+  try {
+    const body = await r.json();
+    if (body && typeof body === "object" && typeof body.error === "string") msg = body.error;
+  } catch {
+    // ignore
+  }
+  throw new Error(msg);
+}
+
 function get(url: string) {
-  return fetch(API_BASE + url).then((r) => {
-    if (!r.ok) throw new Error(r.statusText);
+  return fetch(API_BASE + url).then(async (r) => {
+    await checkOk(r);
     return r.json();
   });
 }
@@ -16,8 +28,8 @@ function post(url: string, body: unknown) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-  }).then((r) => {
-    if (!r.ok) throw new Error(r.statusText);
+  }).then(async (r) => {
+    await checkOk(r);
     return r.json();
   });
 }
@@ -27,8 +39,8 @@ function patch(url: string, body: unknown) {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-  }).then((r) => {
-    if (!r.ok) throw new Error(r.statusText);
+  }).then(async (r) => {
+    await checkOk(r);
     return r.json();
   });
 }
@@ -72,6 +84,13 @@ export async function updateFarmerRecord(
   return patch(`/api/farmers/${id}`, data) as Promise<import("@/types").FarmerRecord>;
 }
 
+/** Create or link a farmer_record from a coconut (Supabase) row so Approve/Recollect work */
+export async function ensureFarmerRecordFromCoconut(
+  row: Record<string, unknown>
+): Promise<import("@/types").FarmerRecord> {
+  return post("/api/farmers/from-coconut", row) as Promise<import("@/types").FarmerRecord>;
+}
+
 /** List all users (for Field Executives = field_agent role) */
 export async function getUsers() {
   return get("/api/users") as Promise<import("@/types").User[]>;
@@ -92,6 +111,11 @@ export async function getCoconutPlantationStats() {
 /** Coconut Plantation – get one by id */
 export async function getCoconutPlantationById(id: string) {
   return get(`/api/coconut/${id}`) as Promise<import("@/types").CoconutSubmission>;
+}
+
+/** Coconut Plantation – get one by farmer code (fallback when id lookup fails) */
+export async function getCoconutPlantationByFarmerCode(farmerCode: string) {
+  return get(`/api/coconut/by-farmer-code/${encodeURIComponent(farmerCode)}`) as Promise<import("@/types").CoconutSubmission>;
 }
 
 /** Coconut Plantation Registration – submit new */

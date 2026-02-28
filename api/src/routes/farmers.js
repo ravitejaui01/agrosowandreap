@@ -196,6 +196,79 @@ router.post("/", async (req, res) => {
   }
 });
 
+/** Create or ensure a farmer_record from a coconut (Supabase) row so validator Approve/Recollect can work */
+router.post("/from-coconut", async (req, res) => {
+  try {
+    const b = req.body || {};
+    const coconutId = b.id || b.farmer_code || b.farmer_id;
+    if (!coconutId) return res.status(400).json({ error: "id, farmer_code, or farmer_id required" });
+    const farmerRecordId = `farmer-${coconutId}`;
+    const farmerName = b.farmer_name || b.farmerName || "Unknown";
+    const [firstName, ...lastParts] = String(farmerName).trim().split(/\s+/);
+    const lastName = lastParts.join(" ") || "-";
+    const createdBy = b.created_by || b.createdBy || "field-agent-1";
+    const agentName = b.agent_name || b.agentName || "Field Agent";
+    await query(
+      `INSERT INTO users (id, name, email, role) VALUES ($1, $2, $3, 'field_agent')
+       ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name`,
+      [createdBy, agentName, `field-agent-${createdBy}@agro.local`]
+    );
+    await query(
+      `INSERT INTO farmer_records (
+        id, farmer_id, first_name, last_name, national_id, phone_number,
+        village, district, region, country, land_size, land_unit, crop_types,
+        farming_type, status, created_by,
+        block_tehsil_mandal, date_of_plantation, seedlings_planted, seedlings_survived, agent_name,
+        total_area_hectares, area_under_coconut_hectares, land_ownership, land_use_before_plantation,
+        type_of_variety, plantation_model, active_status, spacing, mode_of_irrigation, number_of_plots
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'submitted', $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)
+       ON CONFLICT (id) DO UPDATE SET
+        first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, national_id = EXCLUDED.national_id,
+        phone_number = EXCLUDED.phone_number, village = EXCLUDED.village, district = EXCLUDED.district,
+        region = EXCLUDED.region, updated_at = NOW()`,
+      [
+        farmerRecordId,
+        coconutId,
+        firstName || "Unknown",
+        lastName,
+        b.aadhaar || b.aadhaar_number || null,
+        b.phone || null,
+        b.village || null,
+        b.district || null,
+        b.state || null,
+        "India",
+        b.area_under_coconut_hectares ?? b.areaUnderCoconutHectares ?? null,
+        "hectares",
+        ["coconut"],
+        "commercial",
+        createdBy,
+        b.block_tehsil_mandal ?? b.blockTehsilMandal ?? null,
+        b.date_of_plantation ?? b.dateOfPlantation ?? null,
+        b.seedlings_planted ?? b.seedlingsPlanted ?? null,
+        b.seedlings_survived ?? b.seedlingsSurvived ?? null,
+        agentName,
+        b.total_area_hectares ?? b.totalAreaHectares ?? null,
+        b.area_under_coconut_hectares ?? b.areaUnderCoconutHectares ?? null,
+        b.land_ownership ?? b.landOwnership ?? null,
+        b.land_use_before_plantation ?? b.landUseBeforePlantation ?? null,
+        b.type_of_variety ?? b.typeOfVariety ?? null,
+        b.plantation_model ?? b.plantationModel ?? null,
+        b.active_status ?? b.activeStatus ?? null,
+        b.spacing ?? null,
+        b.mode_of_irrigation ?? b.modeOfIrrigation ?? null,
+        b.number_of_plots ?? b.numberOfPlots ?? null,
+      ]
+    );
+    const rec = await query("SELECT * FROM farmer_records WHERE id = $1", [farmerRecordId]);
+    const docs = await query("SELECT * FROM documents WHERE farmer_record_id = $1", [farmerRecordId]);
+    const hist = await query("SELECT * FROM validation_history WHERE farmer_record_id = $1", [farmerRecordId]);
+    return res.status(201).json(rowToFarmer(rec.rows[0], docs.rows, hist.rows));
+  } catch (err) {
+    console.error("from-coconut:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.patch("/:id", async (req, res) => {
   try {
     const b = req.body;

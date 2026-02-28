@@ -67,7 +67,7 @@ If you prefer local PostgreSQL:
 **Check where data went:** When you submit a registration, watch the **API terminal**. You should see either:
 - `[coconut] Saving to PostgreSQL coconut_submissions...` then `[coconut] Saved to PostgreSQL coconut_submissions, id: ...` → data is in the DB.
 - `[coconut] No DATABASE_URL — saving to fallback store` → data is only in memory/file, not in PostgreSQL.
-- `[coconut] INSERT failed. Data NOT saved to database. ...` → API returns 503; fix the DB/error and try again.
+- `[coconut] INSERT failed. Data NOT saved to database. ...` → API returns 503; fix the DB connection (Railway Variables → DATABASE_PUBLIC_URL) and try again.
 
 **Verify rows:** Use DBeaver (or any client) connected to your **remote** database → open table `coconut_submissions`. For local Docker only: `docker exec -it $(docker ps -q -f name=db) psql -U agroforestry -d agroforestry -c "SELECT id, farmer_name FROM coconut_submissions;"`
 

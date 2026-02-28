@@ -176,7 +176,7 @@ export default function CoconutRegistration() {
         delete payload._draftStep; // draft-only, not sent to API
         const result = await submitCoconutRegistration(payload as CoconutSubmission) as { _savedTo?: string };
         if (result._savedTo === "fallback") {
-          toast.error("Record was not saved to the database. It will not appear in Data Validator. Set DATABASE_PUBLIC_URL on the API (e.g. Railway Variables) and try again.");
+          toast.error("Record was not saved to the database. Set DATABASE_PUBLIC_URL on the API (Railway Variables) and try again.");
           setSubmitting(false);
           return;
         }

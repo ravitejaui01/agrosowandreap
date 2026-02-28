@@ -166,6 +166,20 @@ router.get("/stats", async (req, res) => {
   }
 });
 
+router.get("/by-farmer-code/:farmerCode", async (req, res) => {
+  try {
+    const result = await query(
+      "SELECT * FROM coconut_submissions WHERE farmer_code = $1 LIMIT 1",
+      [req.params.farmerCode]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: "Not found" });
+    res.json(rowToCoconut(result.rows[0]));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get("/:id", async (req, res) => {
   try {
     const result = await query("SELECT * FROM coconut_submissions WHERE id = $1", [req.params.id]);
@@ -247,9 +261,10 @@ router.post("/", async (req, res) => {
       annualIrrigations: b.annualIrrigations ?? b.annual_irrigations,
       annualManpower: b.annualManpower ?? b.annual_manpower,
     };
+    const farmerCode = b.farmer_code ?? b.farmerCode ?? id;
     await query(
       `INSERT INTO coconut_submissions (
-        id, farmer_name, phone, aadhaar, agent_name, active_status, total_area_hectares, area_under_coconut_hectares,
+        id, farmer_code, farmer_name, phone, aadhaar, agent_name, active_status, total_area_hectares, area_under_coconut_hectares,
         number_of_plots, state, district, block_tehsil_mandal, village, date_of_plantation,
         spacing, seedlings_planted, seedlings_survived, plots, mapped_area_acres, location, created_by,
         land_ownership, land_use_before_plantation, tree_clearance_before_plantation,
@@ -260,11 +275,12 @@ router.post("/", async (req, res) => {
         cost_of_seedlings, fencing_propping_shading, land_preparation,
         manure_expenses, irrigation_expenses, weed_management, plant_protection,
         agriculture_implements, manpower_expenses, annual_fertilizers, annual_irrigations, annual_manpower
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,
-        $22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,
-        $43,$44,$45,$46,$47,$48,$49,$50,$51,$52,$53)`,
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,
+        $23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,
+        $44,$45,$46,$47,$48,$49,$50,$51,$52,$53,$54)`,
       [
         id,
+        farmerCode,
         farmerName,
         b.phone,
         b.aadhaar,
@@ -375,10 +391,10 @@ router.post("/", async (req, res) => {
     console.log("[coconut] Saved to PostgreSQL coconut_submissions, id:", id);
     return res.status(201).json({ ...rowToCoconut(created.rows[0]), _savedTo: "database" });
   } catch (err) {
-    // DB is configured but INSERT failed — return 503 so client knows data did NOT save (do not fall back to in-memory)
+    // DB is configured but INSERT failed — return 503 so client knows data did NOT save
     console.error("[coconut] INSERT failed. Data NOT saved to database. Code:", err.code, "Message:", err.message, err.detail || "");
     return res.status(503).json({
-      error: "Database save failed. Record was not saved and will not appear in Data Validator.",
+      error: "Database save failed. Record was not saved.",
       detail: err.message,
       code: err.code,
     });

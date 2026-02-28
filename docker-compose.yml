@@ -1,3 +1,6 @@
+# Local PostgreSQL (optional). To use Supabase instead: in api/.env set
+# DATABASE_URL to your Supabase connection string (Project Settings → Database → Connection string).
+# Supabase URL & anon key are in api/.env (SUPABASE_URL, SUPABASE_ANON_KEY) and in frontend .env (VITE_*).
 services:
   db:
     image: postgres:16-alpine

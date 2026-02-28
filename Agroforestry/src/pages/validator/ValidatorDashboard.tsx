@@ -1,8 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { StatsCard } from "@/components/dashboard/StatsCard";
-import { RecentRecords } from "@/components/dashboard/RecentRecords";
-import { getFarmerRecords, getFarmerStats } from "@/lib/api";
+import { getFarmerStats } from "@/lib/api";
 import { FileText, Clock, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -12,15 +11,6 @@ export default function ValidatorDashboard() {
     queryFn: getFarmerStats,
     refetchInterval: 30000,
   });
-  const { data: allRecords = [], isLoading: recordsLoading } = useQuery({
-    queryKey: ["validator-farmer-records"],
-    queryFn: () => getFarmerRecords(),
-    refetchInterval: 30000, // Auto-refresh so new Coconut Registrations appear automatically
-  });
-
-  const reviewQueue = allRecords.filter(
-    (r) => r.status === "submitted" || r.status === "under_review"
-  );
 
   return (
     <DashboardLayout userRole="data_validator" userName="Mary Wanjiku">
@@ -85,13 +75,6 @@ export default function ValidatorDashboard() {
             </div>
           </Link>
         </div>
-
-        <RecentRecords
-          records={reviewQueue.slice(0, 5)}
-          viewAllLink="/validator/records"
-          showActions
-          onView={(record) => console.log("View record:", record)}
-        />
       </div>
     </DashboardLayout>
   );

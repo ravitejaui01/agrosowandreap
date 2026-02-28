@@ -14,6 +14,7 @@ import ValidatorDashboard from "./pages/validator/ValidatorDashboard";
 import ValidatorFarmers from "./pages/validator/ValidatorFarmers";
 import ValidatorFieldExecutives from "./pages/validator/ValidatorFieldExecutives";
 import ValidatorRecords from "./pages/validator/ValidatorRecords";
+import ValidatorCoconutDetail from "./pages/validator/ValidatorCoconutDetail";
 
 // Officer Pages
 import OfficerDashboard from "./pages/officer/OfficerDashboard";
@@ -39,6 +40,7 @@ const App = () => (
             {/* Data Validator Routes (requires login) */}
             <Route path="/validator" element={<ValidatorProtectedRoute><ValidatorDashboard /></ValidatorProtectedRoute>} />
             <Route path="/validator/farmers" element={<ValidatorProtectedRoute><ValidatorFarmers /></ValidatorProtectedRoute>} />
+            <Route path="/validator/farmers/coconut/:id" element={<ValidatorProtectedRoute><ValidatorCoconutDetail /></ValidatorProtectedRoute>} />
             <Route path="/validator/field-executives" element={<ValidatorProtectedRoute><ValidatorFieldExecutives /></ValidatorProtectedRoute>} />
             <Route path="/validator/records" element={<ValidatorProtectedRoute><ValidatorRecords /></ValidatorProtectedRoute>} />
             <Route path="/validator/verified" element={<ValidatorProtectedRoute><ValidatorDashboard /></ValidatorProtectedRoute>} />
