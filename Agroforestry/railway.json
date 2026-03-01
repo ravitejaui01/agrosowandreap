@@ -1,8 +1,5 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
-  "build": {
-    "watchPatterns": ["**"]
-  },
   "deploy": {
     "startCommand": "npm run build && npm run preview",
     "healthcheckPath": "/",
