@@ -32,7 +32,23 @@ export default function ValidatorRecords() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<RecordStatus | "all">("all");
-  const [removedRecordIds, setRemovedRecordIds] = useState<Set<string>>(new Set());
+  
+  // Load removed record IDs from localStorage on component mount
+  const [removedRecordIds, setRemovedRecordIds] = useState<Set<string>>(() => {
+    const stored = localStorage.getItem('removedValidatorRecords');
+    return stored ? new Set(JSON.parse(stored)) : new Set();
+  });
+
+  // Function to update removed records and save to localStorage
+  const addToRemovedRecords = (recordId: string) => {
+    setRemovedRecordIds(prev => {
+      const newSet = new Set(prev);
+      newSet.add(recordId);
+      // Save to localStorage
+      localStorage.setItem('removedValidatorRecords', JSON.stringify([...newSet]));
+      return newSet;
+    });
+  };
 
   const { data: records = [], isLoading } = useQuery({
     queryKey: ["validator-farmer-records"],
@@ -54,8 +70,8 @@ export default function ValidatorRecords() {
   const handleRemoveRecord = async (record: FarmerRecord) => {
     if (window.confirm(`Are you sure you want to remove the record for ${record.firstName} ${record.lastName}?`)) {
       await deleteMutation.mutateAsync(record.id);
-      // Add to removed records set to hide from UI
-      setRemovedRecordIds(prev => new Set([...prev, record.id]));
+      // Add to removed records and save to localStorage
+      addToRemovedRecords(record.id);
     }
   };
 
@@ -73,10 +89,12 @@ export default function ValidatorRecords() {
         await deleteMutation.mutateAsync(record.id);
       }
       
-      // Add all test record IDs to removed set
+      // Add all test record IDs to removed set and localStorage
       setRemovedRecordIds(prev => {
         const newSet = new Set(prev);
         testRecords.forEach(record => newSet.add(record.id));
+        // Save to localStorage
+        localStorage.setItem('removedValidatorRecords', JSON.stringify([...newSet]));
         return newSet;
       });
       
@@ -109,7 +127,7 @@ export default function ValidatorRecords() {
     const visibleRecords = records.filter(r => !removedRecordIds.has(r.id));
     const submitted = visibleRecords.filter(r => r.status === "submitted").length;
     const draft = visibleRecords.filter(r => r.status === "draft").length;
-    return { submitted, incomplete: draft };
+    return { submitted, incomplete: draft, total: visibleRecords.length };
   }, [records, removedRecordIds]);
 
   return (
@@ -150,7 +168,7 @@ export default function ValidatorRecords() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Records</p>
-                <p className="text-2xl font-bold text-gray-600">{records.length}</p>
+                <p className="text-2xl font-bold text-gray-600">{recordCounts.total}</p>
               </div>
               <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center">
                 <div className="h-2 w-2 rounded-full bg-gray-600"></div>

@@ -5,7 +5,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ValidatorProtectedRoute } from "@/components/ValidatorProtectedRoute";
-import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import ValidatorLogin from "./pages/ValidatorLogin";
 
@@ -15,14 +14,6 @@ import ValidatorFarmers from "./pages/validator/ValidatorFarmers";
 import ValidatorFieldExecutives from "./pages/validator/ValidatorFieldExecutives";
 import ValidatorRecords from "./pages/validator/ValidatorRecords";
 import ValidatorCoconutDetail from "./pages/validator/ValidatorCoconutDetail";
-
-// Officer Pages
-import OfficerDashboard from "./pages/officer/OfficerDashboard";
-
-// Admin Pages
-import AdminDashboard from "./pages/admin/AdminDashboard";
-import CoconutPlantation from "./pages/admin/CoconutPlantation";
-import CoconutPlantationRegistration from "./pages/admin/CoconutPlantationRegistration";
 
 const queryClient = new QueryClient();
 
@@ -34,7 +25,7 @@ const App = () => (
       <AuthProvider>
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Index />} />
+            <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<ValidatorLogin />} />
             
             {/* Data Validator Routes (requires login) */}
@@ -43,19 +34,6 @@ const App = () => (
             <Route path="/validator/farmers/coconut/:id" element={<ValidatorProtectedRoute><ValidatorCoconutDetail /></ValidatorProtectedRoute>} />
             <Route path="/validator/field-executives" element={<ValidatorProtectedRoute><ValidatorFieldExecutives /></ValidatorProtectedRoute>} />
             <Route path="/validator/records" element={<ValidatorProtectedRoute><ValidatorRecords /></ValidatorProtectedRoute>} />
-            <Route path="/validator/verified" element={<ValidatorProtectedRoute><ValidatorDashboard /></ValidatorProtectedRoute>} />
-          
-          {/* Verified Officer Routes */}
-          <Route path="/officer" element={<OfficerDashboard />} />
-          <Route path="/officer/pending" element={<OfficerDashboard />} />
-          <Route path="/officer/approved" element={<OfficerDashboard />} />
-          
-          {/* Admin Routes */}
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/admin/records" element={<AdminDashboard />} />
-          <Route path="/admin/coconut" element={<CoconutPlantation />} />
-          <Route path="/admin/coconut/register" element={<CoconutPlantationRegistration />} />
-          <Route path="/admin/users" element={<AdminDashboard />} />
           
           {/* Catch-all */}
           <Route path="*" element={<NotFound />} />

@@ -8,8 +8,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Eye } from "lucide-react";
+import { useState, useMemo } from "react";
 
 export default function ValidatorDashboard() {
+  // Load removed record IDs from localStorage on component mount
+  const [removedRecordIds, setRemovedRecordIds] = useState<Set<string>>(() => {
+    const stored = localStorage.getItem('removedValidatorRecords');
+    return stored ? new Set(JSON.parse(stored)) : new Set();
+  });
+
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ["validator-stats"],
     queryFn: getFarmerStats,
@@ -22,10 +29,32 @@ export default function ValidatorDashboard() {
     refetchInterval: 30000,
   });
 
+  // Filter out removed records
+  const visibleRecords = useMemo(() => {
+    return records.filter(record => !removedRecordIds.has(record.id));
+  }, [records, removedRecordIds]);
+
+  // Calculate stats from visible records instead of API stats
+  const calculatedStats = useMemo(() => {
+    const totalRecords = visibleRecords.length;
+    const pendingReview = visibleRecords.filter(r => r.status === 'submitted' || r.status === 'under_review').length;
+    const approved = visibleRecords.filter(r => r.status === 'approved').length;
+    const rejected = visibleRecords.filter(r => r.status === 'rejected').length;
+    const correctionsNeeded = visibleRecords.filter(r => r.status === 'corrections_needed').length;
+    
+    return {
+      totalRecords,
+      pendingReview,
+      approved,
+      rejected,
+      correctionsNeeded
+    };
+  }, [visibleRecords]);
+
   // Calculate additional stats
-  const recentSubmissions = records.slice(0, 5);
-  const completionRate = stats?.totalRecords > 0 
-    ? Math.round(((stats?.approved ?? 0) / stats?.totalRecords) * 100) 
+  const recentSubmissions = visibleRecords.slice(0, 5);
+  const completionRate = calculatedStats.totalRecords > 0 
+    ? Math.round((calculatedStats.approved / calculatedStats.totalRecords) * 100) 
     : 0;
 
   return (
@@ -58,21 +87,21 @@ export default function ValidatorDashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatsCard
             title="Total Reviewed"
-            value={statsLoading ? "…" : (stats?.totalRecords ?? 0)}
+            value={recordsLoading ? "…" : calculatedStats.totalRecords}
             icon={FileText}
             description="All time reviews"
             variant="primary"
           />
           <StatsCard
             title="Pending Review"
-            value={statsLoading ? "…" : (stats?.pendingReview ?? 0)}
+            value={recordsLoading ? "…" : calculatedStats.pendingReview}
             icon={Clock}
             description="Awaiting your review"
             variant="warning"
           />
           <StatsCard
             title="Verified"
-            value={statsLoading ? "…" : (stats?.approved ?? 0)}
+            value={recordsLoading ? "…" : calculatedStats.approved}
             icon={CheckCircle2}
             description="Sent for final approval"
             variant="success"
@@ -80,88 +109,15 @@ export default function ValidatorDashboard() {
           />
           <StatsCard
             title="Corrections Requested"
-            value={statsLoading ? "…" : (stats?.correctionsNeeded ?? 0)}
+            value={recordsLoading ? "…" : calculatedStats.correctionsNeeded}
             icon={AlertTriangle}
             description="Sent back for corrections"
             variant="info"
           />
         </div>
 
-        {/* Additional Stats Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Card className="overflow-hidden">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Activity className="h-5 w-5 text-primary" />
-                Recent Activity
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {recordsLoading ? (
-                  <div className="text-center py-4 text-muted-foreground">Loading...</div>
-                ) : recentSubmissions.length > 0 ? (
-                  recentSubmissions.map((record) => (
-                    <div key={record.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
-                      <div>
-                        <p className="font-medium text-sm">{record.firstName} {record.lastName}</p>
-                        <p className="text-xs text-muted-foreground">{new Date(record.createdAt).toLocaleDateString()}</p>
-                      </div>
-                      <Badge variant={record.status === 'submitted' ? 'default' : 'secondary'}>
-                        {record.status}
-                      </Badge>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-4 text-muted-foreground">No recent submissions</div>
-                )}
-              </div>
-              {recentSubmissions.length > 0 && (
-                <div className="mt-4 pt-3 border-t">
-                  <Button variant="ghost" size="sm" asChild className="w-full">
-                    <Link to="/validator/records" className="gap-1">
-                      View all activity
-                      <ArrowRight className="h-3 w-3" />
-                    </Link>
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="overflow-hidden">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <BarChart3 className="h-5 w-5 text-success" />
-                Verification Stats
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="text-center p-3 rounded-lg bg-success/10">
-                  <div className="text-2xl font-bold text-success">{stats?.approved ?? 0}</div>
-                  <div className="text-xs text-muted-foreground">Approved</div>
-                </div>
-                <div className="text-center p-3 rounded-lg bg-destructive/10">
-                  <div className="text-2xl font-bold text-destructive">{stats?.rejected ?? 0}</div>
-                  <div className="text-xs text-muted-foreground">Rejected</div>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Completion Rate</span>
-                  <span className="font-medium">{completionRate}%</span>
-                </div>
-                <div className="w-full bg-muted rounded-full h-2">
-                  <div 
-                    className="bg-success h-2 rounded-full transition-all" 
-                    style={{ width: `${completionRate}%` }}
-                  ></div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
+        {/* Quick Actions Card Only */}
+        <div className="grid sm:grid-cols-1 gap-6">
           <Card className="overflow-hidden">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
@@ -192,28 +148,8 @@ export default function ValidatorDashboard() {
           </Card>
         </div>
 
-        {/* Verified Records Card */}
-        <div className="grid sm:grid-cols-2 gap-6">
-          <Link
-            to="/validator/verified"
-            className="group p-6 rounded-xl border border-border bg-card hover:border-success/50 hover:shadow-elevated transition-all"
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="h-12 w-12 rounded-lg bg-success/10 flex items-center justify-center mb-4 group-hover:bg-success/20 transition-colors">
-                  <CheckCircle2 className="h-6 w-6 text-success" />
-                </div>
-                <h3 className="font-semibold mb-1">Verified Records</h3>
-                <p className="text-sm text-muted-foreground">
-                  View all verified submissions ready for final approval
-                </p>
-              </div>
-              <span className="text-3xl font-bold text-success">
-                {statsLoading ? "…" : (stats?.approved ?? 0)}
-              </span>
-            </div>
-          </Link>
-
+        {/* Pending Review Card Only */}
+        <div className="grid sm:grid-cols-1 gap-6">
           <Link
             to="/validator/records"
             className="group p-6 rounded-xl border border-border bg-card hover:border-primary/50 hover:shadow-elevated transition-all"
@@ -229,7 +165,7 @@ export default function ValidatorDashboard() {
                 </p>
               </div>
               <span className="text-3xl font-bold text-primary">
-                {statsLoading ? "…" : (stats?.pendingReview ?? 0)}
+                {recordsLoading ? "…" : calculatedStats.pendingReview}
               </span>
             </div>
           </Link>

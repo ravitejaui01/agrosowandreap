@@ -41,20 +41,6 @@ const roles = [
     color: "bg-warning/10 border-warning/30 hover:bg-warning/20",
     iconBg: "bg-warning text-warning-foreground",
   },
-  {
-    title: "Verified Officer",
-    description: "Final approval authority",
-    path: "/officer",
-    color: "bg-primary/10 border-primary/30 hover:bg-primary/20",
-    iconBg: "bg-primary text-primary-foreground",
-  },
-  {
-    title: "Administrator",
-    description: "System management & reporting",
-    path: "/admin",
-    color: "bg-accent/10 border-accent/30 hover:bg-accent/20",
-    iconBg: "bg-accent text-accent-foreground",
-  },
 ];
 
 const Index = () => {
@@ -70,17 +56,19 @@ const Index = () => {
               <span className="text-sm font-medium text-white/90">Farmer Management System</span>
             </div>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 tracking-tight">
-              Farmer Data Verification
+              Data Validator
               <br />
-              <span className="text-sidebar-primary">& Management System</span>
+              <span className="text-sidebar-primary">Management System</span>
             </h1>
             <p className="text-lg text-white/80 mb-8 max-w-2xl mx-auto">
-              A role-based digital platform designed to collect, validate, verify, and manage farmer registration data in a secure and structured workflow.
+              Review and verify farmer records with secure role-based access control and real-time monitoring.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" className="bg-white text-primary hover:bg-white/90 gap-2">
-                Get Started
-                <ArrowRight className="h-4 w-4" />
+              <Button size="lg" className="bg-white text-primary hover:bg-white/90 gap-2" asChild>
+                <Link to="/login">
+                  Login as Validator
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
               </Button>
               <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10">
                 Learn More

@@ -9,8 +9,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 export default function ValidatorLogin() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("datavalidator01@gmail.com");
+  const [password, setPassword] = useState("any");
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -20,13 +20,21 @@ export default function ValidatorLogin() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    
+    // Only allow the specific email address
+    if (email.trim() !== "datavalidator01@gmail.com") {
+      toast.error("Access denied. Only authorized email addresses can login.");
+      setLoading(false);
+      return;
+    }
+    
     const ok = login(email.trim(), password, "data_validator");
     setLoading(false);
     if (ok) {
       toast.success("Welcome! You are logged in as Data Validator.");
       navigate(from, { replace: true });
     } else {
-      toast.error("Please enter your email.");
+      toast.error("Invalid password.");
     }
   };
 

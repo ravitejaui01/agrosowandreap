@@ -37,8 +37,6 @@ interface DashboardLayoutProps {
 const roleConfig: Record<UserRole, { label: string; color: string }> = {
   field_agent: { label: "Field Agent", color: "bg-info" },
   data_validator: { label: "Data Validator", color: "bg-warning" },
-  verified_officer: { label: "Verified Data Officer", color: "bg-primary" },
-  admin: { label: "Administrator", color: "bg-accent" },
 };
 
 const navigationItems: Record<UserRole, Array<{ name: string; href: string; icon: React.ElementType }>> = {
@@ -52,19 +50,6 @@ const navigationItems: Record<UserRole, Array<{ name: string; href: string; icon
     { name: "Farmer", href: "/validator/farmers", icon: Users },
     { name: "Field Executive", href: "/validator/field-executives", icon: UserCheck },
     { name: "Validator Records", href: "/validator/records", icon: ClipboardCheck },
-    { name: "Verified Records", href: "/validator/verified", icon: FileCheck },
-  ],
-  verified_officer: [
-    { name: "Dashboard", href: "/officer", icon: LayoutDashboard },
-    { name: "Pending Approval", href: "/officer/pending", icon: ClipboardCheck },
-    { name: "Approved Records", href: "/officer/approved", icon: FileCheck },
-  ],
-  admin: [
-    { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
-    { name: "All Records", href: "/admin/records", icon: FileCheck },
-    { name: "Coconut Plantation", href: "/admin/coconut", icon: Sprout },
-    { name: "Coconut Plantation Registration", href: "/admin/coconut/register", icon: FilePlus },
-    { name: "User Management", href: "/admin/users", icon: Users },
   ],
 };
 

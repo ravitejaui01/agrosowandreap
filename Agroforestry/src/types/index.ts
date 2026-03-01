@@ -1,4 +1,4 @@
-export type UserRole = 'field_agent' | 'data_validator' | 'verified_officer' | 'admin';
+export type UserRole = 'field_agent' | 'data_validator';
 
 export type RecordStatus = 'draft' | 'submitted' | 'under_review' | 'corrections_needed' | 'verified' | 'approved' | 'rejected' | 'deleted';
 
