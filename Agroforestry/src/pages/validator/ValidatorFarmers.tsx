@@ -2,8 +2,9 @@ import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueries } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { getCoconutPlantationsFromSupabase, listDocumentsByFarmerCode, getPlotsFromRow } from "@/lib/supabase";
-import type { CoconutPlantationRow } from "@/lib/supabase";
+import { getCoconutPlantations } from "@/lib/api";
+import { listDocumentsByFarmerCode, getPlotsFromRow } from "@/lib/supabase";
+import type { CoconutSubmission } from "@/types";
 import { buildKmlForPlots, downloadKml } from "@/lib/kml";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,7 @@ import { Search, ChevronLeft, ChevronRight, Download, Eye } from "lucide-react";
 const COCONUT_PAGE_SIZE = 100;
 
 /** Get value from row with snake_case/camelCase fallback. */
-function getCsvVal(c: CoconutPlantationRow | Record<string, unknown>, ...keys: string[]): string {
+function getCsvVal(c: CoconutSubmission | Record<string, unknown>, ...keys: string[]): string {
   const r = c as Record<string, unknown>;
   for (const k of keys) {
     const v = r[k];
@@ -38,9 +39,9 @@ function getDocLinksFromList(docs: { name: string; url: string }[]): DocLinks {
 
 /** Build CSV content from coconut rows (Excel-compatible). Includes Farmer Information, Submitted date, and document links. */
 function buildCoconutCsv(
-  rows: CoconutPlantationRow[],
-  getStatus: (c: CoconutPlantationRow, hasAllFourFromBucket?: boolean) => string,
-  getAreaHa: (c: CoconutPlantationRow) => number | null,
+  rows: CoconutSubmission[],
+  getStatus: (c: CoconutSubmission, hasAllFourFromBucket?: boolean) => string,
+  getAreaHa: (c: CoconutSubmission) => number | null,
   docLinksByCode: Record<string, DocLinks> = {},
   hasAllFourDocsByCode: Record<string, boolean> = {}
 ): string {
@@ -50,9 +51,9 @@ function buildCoconutCsv(
     if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
     return s;
   };
-  const submittedDate = (c: CoconutPlantationRow, status: string) => {
+  const submittedDate = (c: CoconutSubmission, status: string) => {
     if (status !== "Submitted") return "";
-    const raw = c.created_at ?? (c as Record<string, unknown>).createdAt;
+    const raw = c.createdAt;
     return raw ? new Date(String(raw)).toLocaleDateString() : "";
   };
   const lines = [
@@ -125,7 +126,7 @@ function downloadCsv(content: string, filename: string) {
 }
 
 /** True only when all 4 docs are present: Aadhaar, Agreement, RTC, and Bank. If any one is missing → Incomplete. */
-function hasAllFourComplete(c: CoconutPlantationRow | Record<string, unknown>): boolean {
+function hasAllFourComplete(c: CoconutSubmission | Record<string, unknown>): boolean {
   const r = c as Record<string, unknown>;
   const hasVal = (v: unknown) => v != null && v !== "" && String(v).trim() !== "" && String(v).toLowerCase() !== "undefined";
   const hasAadhaar = hasVal(r.aadhaar ?? r.aadhaar_number);
@@ -151,7 +152,7 @@ function checkBucketHasAllFourDocTypes(docNames: string[]): boolean {
 
 /** Show "Submitted" only when all 4 (Aadhaar, Agreement, RTC, Bank) are present from row OR from bucket; otherwise "Incomplete". */
 function getSubmissionStatus(
-  c: CoconutPlantationRow | Record<string, unknown>,
+  c: CoconutSubmission | Record<string, unknown>,
   hasAllFourFromBucket?: boolean
 ): string {
   if (hasAllFourFromBucket) return "Submitted";
@@ -159,7 +160,7 @@ function getSubmissionStatus(
 }
 
 /** Get area in hectares from a coconut row (Supabase may use different column names). */
-function getAreaHa(c: CoconutPlantationRow | Record<string, unknown>): number | null {
+function getAreaHa(c: CoconutSubmission | Record<string, unknown>): number | null {
   const r = c as Record<string, unknown>;
   const keys = [
     "area_under_coconut_hectares", "areaUnderCoconutHectares", "area_under_coconut", "areaUnderCoconut",
@@ -196,7 +197,7 @@ export default function ValidatorFarmers() {
     refetch: refetchCoconut,
   } = useQuery({
     queryKey: ["coconut-plantations-supabase"],
-    queryFn: () => getCoconutPlantationsFromSupabase(),
+    queryFn: () => getCoconutPlantations(),
     refetchInterval: 30000,
     refetchOnReconnect: true,
     retry: 3,
@@ -206,7 +207,7 @@ export default function ValidatorFarmers() {
   const filteredCoconut = useMemo(() => {
     const q = String(coconutSearch).toLowerCase().trim();
     if (!q) return coconutPlantations;
-    const exactMatch = coconutPlantations.filter((c: CoconutPlantationRow) => {
+    const exactMatch = coconutPlantations.filter((c: CoconutSubmission) => {
       try {
         const id = String(c.id ?? "").toLowerCase();
         const farmerCode = String(c.farmer_code ?? "").toLowerCase();
@@ -217,7 +218,7 @@ export default function ValidatorFarmers() {
       }
     });
     if (exactMatch.length > 0) return exactMatch;
-    return coconutPlantations.filter((c: CoconutPlantationRow) => {
+    return coconutPlantations.filter((c: CoconutSubmission) => {
       try {
         const id = String(c.id ?? "").toLowerCase();
         const farmerCode = String(c.farmer_code ?? "").toLowerCase();
@@ -435,7 +436,7 @@ export default function ValidatorFarmers() {
                       </td>
                     </tr>
                   ) : (
-                    coconutPageRows.map((c: CoconutPlantationRow) => {
+                    coconutPageRows.map((c: CoconutSubmission) => {
                       const areaHa = getAreaHa(c);
                       const code = String(c.farmer_code ?? c.farmer_id ?? c.id ?? "").trim();
                       const hasAllFourFromBucket = !!hasAllFourDocsByCode[code];
@@ -443,7 +444,7 @@ export default function ValidatorFarmers() {
                       const plots = getPlotsFromRow(c);
                       const hasGeoboundaries = plots.some((p) => Array.isArray(p.latlngs) && p.latlngs.length >= 3);
                       const submittedAt = status === "Submitted"
-                        ? (c.created_at ?? (c as Record<string, unknown>).createdAt)
+                        ? (c.createdAt)
                         : null;
                       const submittedStr = submittedAt ? new Date(String(submittedAt)).toLocaleDateString() : "—";
                       return (
@@ -509,7 +510,7 @@ export default function ValidatorFarmers() {
                       <td colSpan={11} className="px-6 py-12 text-center text-muted-foreground">
                         {coconutSearch.trim()
                           ? "No matching records for your search. Try a different ID, name, or district."
-                          : "No rows in coconut_plantations table. Add data in Supabase or check RLS."}
+                          : "No rows in coconut_submissions table. Add data via Field Agent app or check database connection."}
                       </td>
                     </tr>
                   )}
