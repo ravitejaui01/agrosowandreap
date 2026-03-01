@@ -509,7 +509,7 @@ export default function ValidatorFarmers() {
                       <td colSpan={11} className="px-6 py-12 text-center text-muted-foreground">
                         {coconutSearch.trim()
                           ? "No matching records for your search. Try a different ID, name, or district."
-                          : "No rows in coconut_submissions table. Add data via Field Agent app or check database connection."}
+                          : "No rows in coconut_plantations table. Add data in Supabase or check RLS."}
                       </td>
                     </tr>
                   )}
