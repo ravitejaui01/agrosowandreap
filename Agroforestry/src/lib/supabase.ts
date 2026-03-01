@@ -79,7 +79,7 @@ export function normalizePlotsList(plots: unknown): CoconutPlotRow[] {
   return arr.map(normalizePlot).filter((p): p is CoconutPlotRow => p != null);
 }
 
-/** Row from Supabase coconut_submissions table (snake_case from DB) */
+/** Row from Supabase coconut_plantations table (snake_case from DB) */
 export interface CoconutPlantationRow {
   id?: string;
   farmer_code?: string;
@@ -173,7 +173,7 @@ export function getPlotsFromRow(row: CoconutPlantationRow | null | undefined): C
 
 const PAGE_SIZE = 1000;
 
-/** Fetch all rows from coconut_submissions table in Supabase (paginates to get full count, e.g. 15,330+) */
+/** Fetch all rows from coconut_plantations table in Supabase (paginates to get full count, e.g. 15,330+) */
 export async function getCoconutPlantationsFromSupabase(): Promise<CoconutPlantationRow[]> {
   if (!supabase) {
     console.warn("Supabase not configured (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY)");
@@ -185,12 +185,12 @@ export async function getCoconutPlantationsFromSupabase(): Promise<CoconutPlanta
   while (hasMore) {
     const to = from + PAGE_SIZE - 1;
     const { data, error } = await supabase
-      .from("coconut_submissions")
+      .from("coconut_plantations")
       .select("*")
       .order("created_at", { ascending: false })
       .range(from, to);
     if (error) {
-      console.error("Supabase coconut_submissions error:", error.message);
+      console.error("Supabase coconut_plantations error:", error.message);
       break;
     }
     const page = (data ?? []) as CoconutPlantationRow[];
@@ -201,23 +201,23 @@ export async function getCoconutPlantationsFromSupabase(): Promise<CoconutPlanta
   return all;
 }
 
-/** Fetch one row from coconut_submissions by id (or farmer_code if id match fails) */
+/** Fetch one row from coconut_plantations by id (or farmer_code if id match fails) */
 export async function getCoconutPlantationByIdFromSupabase(
   id: string
 ): Promise<CoconutPlantationRow | null> {
   if (!supabase) return null;
   let { data, error } = await supabase
-    .from("coconut_submissions")
+    .from("coconut_plantations")
     .select("*")
     .eq("id", id)
     .maybeSingle();
   if (error) {
-    console.error("Supabase coconut_submissions by id error:", error.message);
+    console.error("Supabase coconut_plantations by id error:", error.message);
     return null;
   }
   if (!data) {
     const byCode = await supabase
-      .from("coconut_submissions")
+      .from("coconut_plantations")
       .select("*")
       .eq("farmer_code", id)
       .maybeSingle();

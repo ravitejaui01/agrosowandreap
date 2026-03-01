@@ -110,29 +110,62 @@ export interface BiocharDeployment {
   updatedAt: string;
 }
 
-/** Coconut plantation submission (registration) */
+/** Coconut plantation submission (registration) - API response format */
 export interface CoconutSubmission {
   id: string;
   farmerName: string;
   phone: string;
   aadhaar: string;
   agentName: string;
-  totalAreaHectares: number;
-  areaUnderCoconutHectares: number;
-  numberOfPlots: number;
-  state: string;
+  activeStatus?: string;
+  totalAreaHectares?: number;
+  areaUnderCoconutHectares?: number;
+  numberOfPlots?: number;
+  state?: string;
   district: string;
-  blockTehsilMandal: string;
+  blockTehsilMandal?: string;
   village: string;
-  dateOfPlantation: string;
-  spacing: string;
-  seedlingsPlanted: number;
-  seedlingsSurvived: number;
+  dateOfPlantation?: string;
+  spacing?: string;
+  seedlingsPlanted?: number;
+  seedlingsSurvived?: number;
   plots: { plotNumber: number; areaAcres: number; latlngs?: [number, number][] }[];
   mappedAreaAcres?: number;
   location?: { lat: number; lng: number; accuracy?: number };
   createdAt: string;
   createdBy: string;
+  landOwnership?: string;
+  landUseBeforePlantation?: string;
+  treeClearanceBeforePlantation?: string;
+  burningTreesForSitePreparation?: string;
+  ageOfSaplingMonths?: number;
+  landPattaSurveyNumber?: string;
+  plantationModel?: string;
+  sourceOfNursery?: string;
+  typeOfVariety?: string;
+  sizeOfPit?: string;
+  modeOfIrrigation?: string;
+  kharifCrop?: string;
+  kharifCropDurationDays?: number;
+  rabiCrop?: string;
+  rabiCropDurationDays?: number;
+  nitrogenQtyKg?: number;
+  phosphorousQtyKg?: number;
+  potassiumQtyKg?: number;
+  organicQtyKg?: number;
+  otherQtyKg?: number;
+  costOfSeedlings?: number;
+  fencingProppingShading?: number;
+  landPreparation?: number;
+  manureExpenses?: number;
+  irrigationExpenses?: number;
+  weedManagement?: number;
+  plantProtection?: number;
+  agricultureImplements?: number;
+  manpowerExpenses?: number;
+  annualFertilizers?: number;
+  annualIrrigations?: number;
+  annualManpower?: number;
 }
 
 export interface CoconutPlantationStats {

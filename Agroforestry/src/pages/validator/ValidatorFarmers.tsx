@@ -2,9 +2,8 @@ import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueries } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { getCoconutPlantations } from "@/lib/api";
-import { listDocumentsByFarmerCode, getPlotsFromRow } from "@/lib/supabase";
-import type { CoconutSubmission } from "@/types";
+import { getCoconutPlantationsFromSupabase, listDocumentsByFarmerCode, getPlotsFromRow } from "@/lib/supabase";
+import type { CoconutPlantationRow } from "@/lib/supabase";
 import { buildKmlForPlots, downloadKml } from "@/lib/kml";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -13,7 +12,7 @@ import { Search, ChevronLeft, ChevronRight, Download, Eye } from "lucide-react";
 const COCONUT_PAGE_SIZE = 100;
 
 /** Get value from row with snake_case/camelCase fallback. */
-function getCsvVal(c: CoconutSubmission | Record<string, unknown>, ...keys: string[]): string {
+function getCsvVal(c: CoconutPlantationRow | Record<string, unknown>, ...keys: string[]): string {
   const r = c as Record<string, unknown>;
   for (const k of keys) {
     const v = r[k];
@@ -60,17 +59,17 @@ function buildCoconutCsv(
     header,
     ...rows.map((c) => {
       const areaHa = getAreaHa(c);
-      const farmerCode = String(c.farmer_code ?? c.farmer_id ?? c.id ?? "").trim();
+      const farmerCode = String(c.id ?? "").trim();
       const hasAllFourFromBucket = hasAllFourDocsByCode[farmerCode] || false;
       const status = getStatus(c, hasAllFourFromBucket);
       const id = c.id ?? "";
-      const date = c.date_of_plantation ? new Date(c.date_of_plantation).toLocaleDateString() : "";
+      const date = c.dateOfPlantation ? new Date(c.dateOfPlantation).toLocaleDateString() : "";
       const aadhaar = getCsvVal(c, "aadhaar", "aadhaar_number");
       const activeStatus = getCsvVal(c, "active_status", "activeStatus");
       const links = docLinksByCode[farmerCode] ?? {};
       
       // Check for KML/geoboundaries
-      const plots = getPlotsFromRow(c);
+      const plots = getPlotsFromRow(c as any);
       const hasKml = plots.some((p) => Array.isArray(p.latlngs) && p.latlngs.length >= 3);
       const plotsCount = plots.length;
       
@@ -91,14 +90,14 @@ function buildCoconutCsv(
       return [
         escape(id),
         escape(farmerCode),
-        escape(c.farmer_name),
+        escape(c.farmerName),
         escape(c.phone),
         escape(aadhaar),
         escape(activeStatus),
         escape(c.district),
         escape(c.village),
         escape(date),
-        escape(c.agent_name),
+        escape(c.agentName),
         areaHa != null ? String(Number(areaHa).toFixed(2)) : "",
         escape(status),
         escape(submittedDate(c, status)),
@@ -126,7 +125,7 @@ function downloadCsv(content: string, filename: string) {
 }
 
 /** True only when all 4 docs are present: Aadhaar, Agreement, RTC, and Bank. If any one is missing → Incomplete. */
-function hasAllFourComplete(c: CoconutSubmission | Record<string, unknown>): boolean {
+function hasAllFourComplete(c: CoconutPlantationRow | Record<string, unknown>): boolean {
   const r = c as Record<string, unknown>;
   const hasVal = (v: unknown) => v != null && v !== "" && String(v).trim() !== "" && String(v).toLowerCase() !== "undefined";
   const hasAadhaar = hasVal(r.aadhaar ?? r.aadhaar_number);
@@ -152,7 +151,7 @@ function checkBucketHasAllFourDocTypes(docNames: string[]): boolean {
 
 /** Show "Submitted" only when all 4 (Aadhaar, Agreement, RTC, Bank) are present from row OR from bucket; otherwise "Incomplete". */
 function getSubmissionStatus(
-  c: CoconutSubmission | Record<string, unknown>,
+  c: CoconutPlantationRow | Record<string, unknown>,
   hasAllFourFromBucket?: boolean
 ): string {
   if (hasAllFourFromBucket) return "Submitted";
@@ -160,7 +159,7 @@ function getSubmissionStatus(
 }
 
 /** Get area in hectares from a coconut row (Supabase may use different column names). */
-function getAreaHa(c: CoconutSubmission | Record<string, unknown>): number | null {
+function getAreaHa(c: CoconutPlantationRow | Record<string, unknown>): number | null {
   const r = c as Record<string, unknown>;
   const keys = [
     "area_under_coconut_hectares", "areaUnderCoconutHectares", "area_under_coconut", "areaUnderCoconut",
@@ -197,7 +196,7 @@ export default function ValidatorFarmers() {
     refetch: refetchCoconut,
   } = useQuery({
     queryKey: ["coconut-plantations-supabase"],
-    queryFn: () => getCoconutPlantations(),
+    queryFn: () => getCoconutPlantationsFromSupabase(),
     refetchInterval: 30000,
     refetchOnReconnect: true,
     retry: 3,
@@ -210,7 +209,7 @@ export default function ValidatorFarmers() {
     const exactMatch = coconutPlantations.filter((c: CoconutSubmission) => {
       try {
         const id = String(c.id ?? "").toLowerCase();
-        const farmerCode = String(c.farmer_code ?? "").toLowerCase();
+        const farmerCode = String(c.id ?? "").toLowerCase();
         const farmerId = String(c.farmer_id ?? "").toLowerCase();
         return id === q || farmerCode === q || farmerId === q;
       } catch {
@@ -221,12 +220,12 @@ export default function ValidatorFarmers() {
     return coconutPlantations.filter((c: CoconutSubmission) => {
       try {
         const id = String(c.id ?? "").toLowerCase();
-        const farmerCode = String(c.farmer_code ?? "").toLowerCase();
+        const farmerCode = String(c.id ?? "").toLowerCase();
         const farmerId = String(c.farmer_id ?? "").toLowerCase();
-        const name = String(c.farmer_name ?? "").toLowerCase();
+        const name = String(c.farmerName ?? "").toLowerCase();
         const district = String(c.district ?? "").toLowerCase();
         const village = String(c.village ?? "").toLowerCase();
-        const agent = String(c.agent_name ?? "").toLowerCase();
+        const agent = String(c.agentName ?? "").toLowerCase();
         return id.includes(q) || farmerCode.includes(q) || farmerId.includes(q) ||
           name.includes(q) || district.includes(q) || village.includes(q) || agent.includes(q);
       } catch {
@@ -246,7 +245,7 @@ export default function ValidatorFarmers() {
 
   const bucketDocResults = useQueries({
     queries: coconutPageRows.map((c) => {
-      const code = String(c.farmer_code ?? c.farmer_id ?? c.id ?? "").trim();
+      const code = String(c.id ?? "").trim();
       return {
         queryKey: ["bucket-docs-status", code] as const,
         queryFn: () => listDocumentsByFarmerCode(code),
@@ -259,7 +258,7 @@ export default function ValidatorFarmers() {
   const hasAllFourDocsByCode = useMemo(() => {
     const m: Record<string, boolean> = {};
     coconutPageRows.forEach((c, i) => {
-      const code = String(c.farmer_code ?? c.farmer_id ?? c.id ?? "").trim();
+      const code = String(c.id ?? "").trim();
       const docs = bucketDocResults[i]?.data ?? [];
       m[code] = checkBucketHasAllFourDocTypes(docs.map((d) => d.name));
     });
@@ -269,13 +268,13 @@ export default function ValidatorFarmers() {
   // Calculate counts for Incomplete and Submitted records
   const recordCounts = useMemo(() => {
     const submitted = filteredCoconut.filter(c => {
-      const code = String(c.farmer_code ?? c.farmer_id ?? c.id ?? "").trim();
+      const code = String(c.id ?? "").trim();
       const hasAllFourFromBucket = hasAllFourDocsByCode[code];
       return getSubmissionStatus(c, hasAllFourFromBucket) === "Submitted";
     }).length;
     
     const incomplete = filteredCoconut.filter(c => {
-      const code = String(c.farmer_code ?? c.farmer_id ?? c.id ?? "").trim();
+      const code = String(c.id ?? "").trim();
       const hasAllFourFromBucket = hasAllFourDocsByCode[code];
       return getSubmissionStatus(c, hasAllFourFromBucket) === "Incomplete";
     }).length;
@@ -365,7 +364,7 @@ export default function ValidatorFarmers() {
                 setExporting(true);
                 try {
                   const allCodes = [...new Set(
-                    filteredCoconut.map((c) => String(c.farmer_code ?? c.farmer_id ?? c.id ?? "").trim()).filter(Boolean)
+                    filteredCoconut.map((c) => String(c.id ?? "").trim()).filter(Boolean)
                   )];
                   const docLinksByCode: Record<string, DocLinks> = {};
                   const MAX_CODES_FOR_LINKS = 150;
@@ -438,29 +437,29 @@ export default function ValidatorFarmers() {
                   ) : (
                     coconutPageRows.map((c: CoconutSubmission) => {
                       const areaHa = getAreaHa(c);
-                      const code = String(c.farmer_code ?? c.farmer_id ?? c.id ?? "").trim();
+                      const code = String(c.id ?? "").trim();
                       const hasAllFourFromBucket = !!hasAllFourDocsByCode[code];
                       const status = getSubmissionStatus(c, hasAllFourFromBucket);
-                      const plots = getPlotsFromRow(c);
+                      const plots = getPlotsFromRow(c as any);
                       const hasGeoboundaries = plots.some((p) => Array.isArray(p.latlngs) && p.latlngs.length >= 3);
                       const submittedAt = status === "Submitted"
                         ? (c.createdAt)
                         : null;
                       const submittedStr = submittedAt ? new Date(String(submittedAt)).toLocaleDateString() : "—";
                       return (
-                        <tr key={c.id ?? String(c.created_at ?? Math.random())} className="hover:bg-muted/30 transition-colors">
+                        <tr key={c.id ?? String(c.createdAt ?? Math.random())} className="hover:bg-muted/30 transition-colors">
                           <td className="px-6 py-4 font-mono text-xs text-foreground">
-                            {c.farmer_code && String(c.farmer_code) !== String(c.id) ? `${c.farmer_code} (${c.id ?? "—"})` : (c.id ?? "—")}
+                            {c.id ?? "—"}
                           </td>
-                          <td className="px-6 py-4 font-medium text-foreground">{c.farmer_name ?? "—"}</td>
+                          <td className="px-6 py-4 font-medium text-foreground">{c.farmerName ?? "—"}</td>
                           <td className="px-6 py-4 text-muted-foreground">{c.district ?? "—"}</td>
                           <td className="px-6 py-4 text-muted-foreground">{c.village ?? "—"}</td>
                           <td className="px-6 py-4 text-muted-foreground text-sm whitespace-nowrap">
-                            {c.date_of_plantation
-                              ? new Date(c.date_of_plantation).toLocaleDateString()
+                            {c.dateOfPlantation
+                              ? new Date(c.dateOfPlantation).toLocaleDateString()
                               : "—"}
                           </td>
-                          <td className="px-6 py-4 text-foreground">{c.agent_name ?? "—"}</td>
+                          <td className="px-6 py-4 text-foreground">{c.agentName ?? "—"}</td>
                           <td className="px-6 py-4 tabular-nums font-medium">{areaHa != null ? Number(areaHa).toFixed(2) : "—"}</td>
                           <td className="px-6 py-4">
                             {status === "Submitted" ? (
