@@ -45,6 +45,15 @@ function patch(url: string, body: unknown) {
   });
 }
 
+function del(url: string) {
+  return fetch(API_BASE + url, {
+    method: "DELETE",
+  }).then(async (r) => {
+    await checkOk(r);
+    return r.json();
+  });
+}
+
 // ---------- Data Validator: Farmers / Records ----------
 
 /** List all farmer records (optional status filter) */
@@ -82,6 +91,11 @@ export async function updateFarmerRecord(
   data: Partial<import("@/types").FarmerRecord>
 ) {
   return patch(`/api/farmers/${id}`, data) as Promise<import("@/types").FarmerRecord>;
+}
+
+/** Delete farmer record */
+export async function deleteFarmerRecord(id: string) {
+  return del(`/api/farmers/${id}`) as Promise<{ success: boolean }>;
 }
 
 /** Create or link a farmer_record from a coconut (Supabase) row so Approve/Recollect work */

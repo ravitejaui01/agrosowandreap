@@ -14,18 +14,95 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { MapContainer, TileLayer, Polygon } from "react-leaflet";
-import { ChevronDown, ArrowLeft, Map, FileText, Download } from "lucide-react";
+import { MapContainer, TileLayer, Polygon, useMap, Popup, Tooltip } from "react-leaflet";
+import L from "leaflet";
+import { ChevronDown, ArrowLeft, Map, FileText, Download, ZoomIn, ZoomOut, Layers, Maximize2 } from "lucide-react";
 import { buildKmlForPlots, downloadKml } from "@/lib/kml";
+
+function MapBounds({ polygons }: { polygons: CoconutPlotRow[] }) {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (polygons.length === 0) return;
+    
+    const validPolygons = polygons.filter(p => Array.isArray(p.latlngs) && p.latlngs.length >= 3);
+    if (validPolygons.length === 0) return;
+    
+    const allBounds = validPolygons.map(p => {
+      const coords = p.latlngs!.map(([lat, lng]) => [lat, lng] as [number, number]);
+      return L.latLngBounds(coords);
+    });
+    
+    if (allBounds.length > 0) {
+      const combinedBounds = allBounds.reduce((acc, bounds) => acc.extend(bounds), allBounds[0]);
+      // Fit bounds with max zoom to prevent overzooming
+      map.fitBounds(combinedBounds, { 
+        padding: [80, 80],
+        maxZoom: 18 // Prevent zooming in too far
+      });
+    }
+  }, [map, polygons]);
+  
+  return null;
+}
+
+function MapControls() {
+  const map = useMap();
+
+  const zoomIn = () => map.zoomIn();
+  const zoomOut = () => map.zoomOut();
+  const toggleFullscreen = () => {
+    const mapContainer = map.getContainer();
+    if (!document.fullscreenElement) {
+      mapContainer.requestFullscreen();
+    } else {
+      document.exitFullscreen();
+    }
+  };
+
+  return (
+    <div className="leaflet-top leaflet-right" style={{ top: '10px', right: '10px', zIndex: 1000 }}>
+      <div className="leaflet-control leaflet-bar bg-white shadow-md rounded">
+        <button
+          onClick={zoomIn}
+          className="leaflet-control-zoom-in p-2 hover:bg-gray-100 border-b"
+          title="Zoom in"
+        >
+          <ZoomIn className="h-4 w-4" />
+        </button>
+        <button
+          onClick={zoomOut}
+          className="leaflet-control-zoom-out p-2 hover:bg-gray-100 border-b"
+          title="Zoom out"
+        >
+          <ZoomOut className="h-4 w-4" />
+        </button>
+        <button
+          onClick={toggleFullscreen}
+          className="p-2 hover:bg-gray-100"
+          title="Toggle fullscreen"
+        >
+          <Maximize2 className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function PlotGeoboundariesModal({
   open,
   onOpenChange,
   plots,
+  farmerData,
+  totalAreaHa,
+  totalGeoboundariesHa,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   plots: CoconutPlotRow[];
+  farmerData?: Record<string, unknown> | null;
+  totalAreaHa?: number;
+  totalGeoboundariesHa?: number;
 }) {
   const polygons = useMemo(() => {
     return (plots ?? []).filter((p) => Array.isArray(p.latlngs) && p.latlngs.length >= 3);
@@ -41,39 +118,104 @@ function PlotGeoboundariesModal({
     ];
   }, [polygons]);
 
+  const formatFarmerDetail = (key: string, value: unknown) => {
+    if (value == null || value === "" || String(value).toLowerCase() === "undefined") return null;
+    return (
+      <div key={key} className="flex justify-between gap-4">
+        <span className="font-medium text-gray-700">{key}:</span>
+        <span className="text-gray-900">{String(value)}</span>
+      </div>
+    );
+  };
+
+  const getLandDetails = () => {
+    const landOwnership = farmerData?.land_ownership ?? farmerData?.landOwnership ?? farmerData?.ownership;
+    const landPatta = farmerData?.land_patta_survey_number ?? farmerData?.landPattaSurveyNumber ?? farmerData?.patta_survey ?? farmerData?.survey_number;
+    const landArea = farmerData?.land_area_hectares ?? farmerData?.landAreaHectares ?? farmerData?.land_size;
+    
+    return {
+      ownership: landOwnership,
+      patta: landPatta,
+      area: landArea
+    };
+  };
+
+  const landDetails = getLandDetails();
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="max-w-7xl max-h-[95vh] flex flex-col p-4">
+        <DialogHeader className="pb-3">
           <DialogTitle className="flex items-center gap-2">
             <Map className="h-5 w-5" />
             Plot Geoboundaries Details
           </DialogTitle>
         </DialogHeader>
-        <div className="min-h-[400px] rounded-md overflow-hidden border">
+        <div className="flex-1 rounded-md overflow-hidden border">
           <MapContainer
             center={center}
-            zoom={14}
-            className="h-[450px] w-full"
+            zoom={13}
+            className="h-full w-full min-h-[600px]"
             scrollWheelZoom={true}
+            style={{ background: '#1a1a1a' }}
           >
             <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              attribution="© OpenStreetMap contributors"
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              maxZoom={19}
+              minZoom={3}
+            />
+            <TileLayer
+              attribution="© Esri, Maxar, Earthstar Geographics"
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+              maxZoom={18}
+              minZoom={3}
+              zIndex={1}
             />
             {polygons.map((p, i) => (
               <Polygon
                 key={i}
                 positions={(p.latlngs ?? []).map((c) => [c[0], c[1]] as [number, number])}
                 pathOptions={{
-                  color: i === 0 ? "#b91c1c" : "#eab308",
-                  fillColor: i === 0 ? "#b45309" : "#ca8a04",
-                  fillOpacity: 0.35,
-                  weight: 2,
+                  color: i === 0 ? "#dc2626" : "#f59e0b",
+                  fillColor: i === 0 ? "#dc2626" : "#f59e0b",
+                  fillOpacity: 0.25,
+                  weight: 3,
+                  opacity: 0.9,
+                  dashArray: i === 0 ? undefined : "10, 5",
+                  className: "plot-polygon hover:fill-opacity-40 transition-all cursor-pointer"
                 }}
-              />
+              >
+                <Tooltip direction="top" offset={[0, -20]} opacity={1} permanent={false}>
+                  <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-200 min-w-[280px]">
+                    <h4 className="font-bold text-gray-900 mb-2 border-b pb-1">
+                      Farmer Details - Plot {i + 1}
+                    </h4>
+                    <div className="space-y-1 text-sm">
+                      {formatFarmerDetail("Farmer Code", farmerData?.id ?? farmerData?.farmer_code)}
+                      {formatFarmerDetail("Farmer Name", farmerData?.farmer_name)}
+                      {formatFarmerDetail("Submission Date", farmerData?.created_at ? new Date(String(farmerData.created_at)).toLocaleDateString() : null)}
+                      {landDetails.ownership && formatFarmerDetail("Land Ownership", landDetails.ownership)}
+                      {landDetails.patta && formatFarmerDetail("Land Patta/Survey", landDetails.patta)}
+                      {totalAreaHa && formatFarmerDetail("Total Area (Ha)", totalAreaHa.toFixed(2))}
+                      {totalGeoboundariesHa && formatFarmerDetail("Total Geoboundaries Area (Ha)", totalGeoboundariesHa.toFixed(3))}
+                      {formatFarmerDetail("Plot Area", p.areaAcres ? `${p.areaAcres.toFixed(2)} acres` : null)}
+                    </div>
+                  </div>
+                </Tooltip>
+              </Polygon>
             ))}
+            <MapBounds polygons={polygons} />
+            <MapControls />
           </MapContainer>
+        </div>
+        <div className="flex justify-between items-center pt-2 mt-2 text-xs">
+          <div className="text-muted-foreground">
+            {polygons.length} plot{polygons.length !== 1 ? 's' : ''} displayed
+          </div>
+          <div className="text-muted-foreground">
+            High-resolution satellite imagery • Hover over plots for farmer details
+          </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -99,7 +241,7 @@ export default function ValidatorCoconutDetail() {
     retry: false,
   });
 
-  const farmerCodeForApi = row?.farmer_code ?? row?.farmer_id ?? (row as Record<string, unknown> | undefined)?.id;
+  const farmerCodeForApi = row?.farmer_code ?? row?.farmer_id ?? (row as unknown as Record<string, unknown> | undefined)?.id;
   const { data: apiRowByFarmerCode, isFetched: apiByCodeFetched } = useQuery({
     queryKey: ["coconut-plantation-api-by-farmer-code", farmerCodeForApi],
     queryFn: () => getCoconutPlantationByFarmerCode(String(farmerCodeForApi)),
@@ -114,12 +256,14 @@ export default function ValidatorCoconutDetail() {
       const list = await getCoconutPlantations();
       const r = row as Record<string, unknown>;
       const match = list.find(
-        (item: Record<string, unknown>) =>
-          item.id === r?.id ||
-          item.id === r?.farmer_code ||
-          item.id === r?.farmer_id ||
-          String(item.phone || "").trim() === String(r?.phone || "").trim() ||
-          (item.farmerName === r?.farmer_name && (item.village === r?.village || item.phone === r?.phone))
+        (item) => {
+          const itemRecord = item as Record<string, unknown>;
+          return itemRecord.id === r?.id ||
+            itemRecord.id === r?.farmer_code ||
+            itemRecord.id === r?.farmer_id ||
+            String(itemRecord.phone || "").trim() === String(r?.phone || "").trim() ||
+            (itemRecord.farmerName === r?.farmer_name && (itemRecord.village === r?.village || itemRecord.phone === r?.phone));
+        }
       );
       return match ?? null;
     },
@@ -136,7 +280,7 @@ export default function ValidatorCoconutDetail() {
     const out = { ...base };
     if (apiRow && typeof apiRow === "object") {
       const camelToSnake = (s: string) => s.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
-      for (const [k, v] of Object.entries(apiRow as Record<string, unknown>)) {
+      for (const [k, v] of Object.entries(apiRow as unknown as Record<string, unknown>)) {
         if (v === undefined || v === null) continue;
         out[k] = v;
         if (/[A-Z]/.test(k)) out[camelToSnake(k)] = v;
@@ -391,6 +535,8 @@ export default function ValidatorCoconutDetail() {
                       <dd>{row.farmer_name ?? "—"}</dd>
                       <dt className="text-muted-foreground">Aadhaar</dt>
                       <dd>{row.aadhaar ?? "—"}</dd>
+                      <dt className="text-muted-foreground">Submission Date</dt>
+                      <dd>{row.created_at ? new Date(String(row.created_at)).toLocaleDateString() : "—"}</dd>
                     </dl>
                     <h4 className="font-medium text-foreground mt-4">Contact Details</h4>
                     <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
@@ -665,20 +811,6 @@ export default function ValidatorCoconutDetail() {
                       <strong>Total Area (Ha):</strong> {Number(totalAreaHa).toFixed(2)} &nbsp;
                       <strong>Total Geoboundaries Area (Ha):</strong> {totalGeoboundariesHa.toFixed(3)}
                     </p>
-                    {plotsList.some((p) => Array.isArray(p.latlngs) && p.latlngs.length >= 3) && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="gap-1"
-                        onClick={() => {
-                          const kml = buildKmlForPlots(plotsList, String(row.id ?? "plot"));
-                          downloadKml(kml, `geoboundaries-${row.id ?? "plot"}.kml`);
-                        }}
-                      >
-                        <Download className="h-4 w-4" />
-                        Download KML (all plots)
-                      </Button>
-                    )}
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full border rounded-lg overflow-hidden">
@@ -744,24 +876,11 @@ export default function ValidatorCoconutDetail() {
               </AccordionContent>
             </AccordionItem>
 
-            {/* Section 6: Validation Details */}
-            <AccordionItem value="section-6" className="rounded-xl border border-border bg-card px-4 shadow-sm">
-              <AccordionTrigger className="hover:no-underline py-4">
-                <span className="flex items-center gap-2">
-                  <span className="font-semibold">Section 6</span>
-                  <span className="text-muted-foreground">Validation Details</span>
-                </span>
-              </AccordionTrigger>
-              <AccordionContent>
-                <p className="pt-2 text-sm text-muted-foreground">Validation history and final status.</p>
-              </AccordionContent>
-            </AccordionItem>
-
             {/* Section 7: Plantation Details */}
             <AccordionItem value="section-7" className="rounded-xl border border-border bg-card px-4 shadow-sm">
               <AccordionTrigger className="hover:no-underline py-4">
                 <span className="flex items-center gap-2">
-                  <span className="font-semibold">Section 7</span>
+                  <span className="font-semibold">Section 6</span>
                   <span className="text-muted-foreground">Plantation Details</span>
                   <span className="ml-2 text-xs font-medium text-muted-foreground bg-muted px-2.5 py-0.5 rounded-md">Status: Pending</span>
                 </span>
@@ -795,7 +914,7 @@ export default function ValidatorCoconutDetail() {
             <AccordionItem value="section-8" className="rounded-xl border border-border bg-card px-4 shadow-sm">
               <AccordionTrigger className="hover:no-underline py-4">
                 <span className="flex items-center gap-2">
-                  <span className="font-semibold">Section 8</span>
+                  <span className="font-semibold">Section 7</span>
                   <span className="text-muted-foreground">Crop Information</span>
                   <span className="ml-2 text-xs font-medium text-muted-foreground bg-muted px-2.5 py-0.5 rounded-md">Status: Pending</span>
                 </span>
@@ -823,6 +942,14 @@ export default function ValidatorCoconutDetail() {
             </AccordionItem>
           </Accordion>
           </>
+        )}
+
+        {/* Section 6: Validation Details - Moved to Bottom */}
+        {row && (
+          <div className="mt-6 rounded-xl border border-border bg-card p-4 shadow-sm">
+            <h3 className="font-semibold text-foreground mb-3">Section 6: Validation Details</h3>
+            <p className="text-sm text-muted-foreground">Validation history and final status.</p>
+          </div>
         )}
 
         {row && (
@@ -872,6 +999,9 @@ export default function ValidatorCoconutDetail() {
         open={mapOpen}
         onOpenChange={setMapOpen}
         plots={plotsList}
+        farmerData={displayRow}
+        totalAreaHa={totalAreaHa}
+        totalGeoboundariesHa={totalGeoboundariesHa}
       />
     </DashboardLayout>
   );

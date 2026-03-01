@@ -39,11 +39,12 @@ function getDocLinksFromList(docs: { name: string; url: string }[]): DocLinks {
 /** Build CSV content from coconut rows (Excel-compatible). Includes Farmer Information, Submitted date, and document links. */
 function buildCoconutCsv(
   rows: CoconutPlantationRow[],
-  getStatus: (c: CoconutPlantationRow) => string,
+  getStatus: (c: CoconutPlantationRow, hasAllFourFromBucket?: boolean) => string,
   getAreaHa: (c: CoconutPlantationRow) => number | null,
-  docLinksByCode: Record<string, DocLinks> = {}
+  docLinksByCode: Record<string, DocLinks> = {},
+  hasAllFourDocsByCode: Record<string, boolean> = {}
 ): string {
-  const header = "ID,Farmer Code,Farmer Name,Phone,Aadhaar,Active Status,District,Village,Date of Plantation,Agent,Area (ha),Status,Submitted,Aadhaar Doc Link,Agreement Doc Link,Bank Doc Link,RTC Doc Link";
+  const header = "ID,Farmer Code,Farmer Name,Phone,Aadhaar,Active Status,District,Village,Date of Plantation,Agent,Area (ha),Status,Submitted,Has KML,Plots Count,KML Download Link,Aadhaar Doc Link,Agreement Doc Link,Bank Doc Link,RTC Doc Link";
   const escape = (v: unknown) => {
     const s = v == null ? "" : String(v);
     if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
@@ -58,13 +59,34 @@ function buildCoconutCsv(
     header,
     ...rows.map((c) => {
       const areaHa = getAreaHa(c);
-      const status = getStatus(c);
-      const id = c.id ?? "";
       const farmerCode = String(c.farmer_code ?? c.farmer_id ?? c.id ?? "").trim();
+      const hasAllFourFromBucket = hasAllFourDocsByCode[farmerCode] || false;
+      const status = getStatus(c, hasAllFourFromBucket);
+      const id = c.id ?? "";
       const date = c.date_of_plantation ? new Date(c.date_of_plantation).toLocaleDateString() : "";
       const aadhaar = getCsvVal(c, "aadhaar", "aadhaar_number");
       const activeStatus = getCsvVal(c, "active_status", "activeStatus");
       const links = docLinksByCode[farmerCode] ?? {};
+      
+      // Check for KML/geoboundaries
+      const plots = getPlotsFromRow(c);
+      const hasKml = plots.some((p) => Array.isArray(p.latlngs) && p.latlngs.length >= 3);
+      const plotsCount = plots.length;
+      
+      // Generate KML download link if KML is available
+      let kmlDownloadLink = "";
+      if (hasKml) {
+        // Create a base64-encoded KML file link that can be downloaded
+        try {
+          const kmlContent = buildKmlForPlots(plots, farmerCode || String(c.id ?? "plot"));
+          const base64Kml = btoa(kmlContent);
+          kmlDownloadLink = `data:application/vnd.google-earth.kml+xml;base64,${base64Kml}`;
+        } catch (error) {
+          console.error("Error generating KML link:", error);
+          kmlDownloadLink = "Error generating KML";
+        }
+      }
+      
       return [
         escape(id),
         escape(farmerCode),
@@ -79,6 +101,9 @@ function buildCoconutCsv(
         areaHa != null ? String(Number(areaHa).toFixed(2)) : "",
         escape(status),
         escape(submittedDate(c, status)),
+        escape(hasKml ? "Yes" : "No"),
+        escape(String(plotsCount)),
+        escape(kmlDownloadLink),
         escape(links.aadhaarUrl ?? ""),
         escape(links.agreementUrl ?? ""),
         escape(links.bankUrl ?? ""),
@@ -240,6 +265,23 @@ export default function ValidatorFarmers() {
     return m;
   }, [coconutPageRows, bucketDocResults]);
 
+  // Calculate counts for Incomplete and Submitted records
+  const recordCounts = useMemo(() => {
+    const submitted = filteredCoconut.filter(c => {
+      const code = String(c.farmer_code ?? c.farmer_id ?? c.id ?? "").trim();
+      const hasAllFourFromBucket = hasAllFourDocsByCode[code];
+      return getSubmissionStatus(c, hasAllFourFromBucket) === "Submitted";
+    }).length;
+    
+    const incomplete = filteredCoconut.filter(c => {
+      const code = String(c.farmer_code ?? c.farmer_id ?? c.id ?? "").trim();
+      const hasAllFourFromBucket = hasAllFourDocsByCode[code];
+      return getSubmissionStatus(c, hasAllFourFromBucket) === "Incomplete";
+    }).length;
+    
+    return { submitted, incomplete };
+  }, [filteredCoconut, hasAllFourDocsByCode]);
+
   useEffect(() => {
     setCoconutPage(0);
   }, [coconutSearch]);
@@ -262,31 +304,61 @@ export default function ValidatorFarmers() {
           </p>
         </div>
 
-        <div className="space-y-4">
-          {coconutError && (
-            <div className="rounded-xl border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive flex items-center justify-between gap-3 flex-wrap">
-              <span>
-                Connection issue — could not load coconut plantations. This often happens when the network changes (e.g. Wi‑Fi or VPN). Check your connection and retry.
-              </span>
-              <Button variant="outline" size="sm" onClick={() => refetchCoconut()}>
-                Retry
-              </Button>
+        {/* Record Counts */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          <div className="rounded-xl border border-border bg-card p-6 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Incomplete</p>
+                <p className="text-3xl font-bold text-orange-600">{recordCounts.incomplete}</p>
+                <p className="text-xs text-muted-foreground mt-1">Missing documents</p>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-orange-100 flex items-center justify-center">
+                <div className="h-3 w-3 rounded-full bg-orange-600"></div>
+              </div>
             </div>
-          )}
-          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm flex flex-wrap items-center gap-3">
-            <div className="relative flex-1 min-w-[240px] max-w-md">
+          </div>
+          <div className="rounded-xl border border-border bg-card p-6 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Submitted</p>
+                <p className="text-3xl font-bold text-blue-600">{recordCounts.submitted}</p>
+                <p className="text-xs text-muted-foreground mt-1">Ready for review</p>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
+                <div className="h-3 w-3 rounded-full bg-blue-600"></div>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-6 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Total Records</p>
+                <p className="text-3xl font-bold text-gray-600">{filteredCoconut.length}</p>
+                <p className="text-xs text-muted-foreground mt-1">All farmers</p>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center">
+                <div className="h-3 w-3 rounded-full bg-gray-600"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-card rounded-xl border border-border p-6 shadow-sm mb-6">
+          <div className="flex flex-col lg:flex-row gap-4 items-center">
+            <div className="relative flex-1 w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
               <Input
                 placeholder="Search by ID, farmer code, name, district, village, agent..."
                 value={coconutSearch}
                 onChange={(e) => setCoconutSearch(e.target.value)}
-                className="pl-9 h-10 rounded-xl border-border bg-background focus-visible:ring-2 focus-visible:ring-primary/20"
+                className="pl-10 h-11 rounded-lg border-border bg-background focus-visible:ring-2 focus-visible:ring-primary/20"
               />
             </div>
             <Button
               variant="default"
-              size="sm"
-              className="gap-2 h-10 rounded-xl shadow-sm"
+              size="default"
+              className="gap-2 h-11 px-6 rounded-lg shadow-sm whitespace-nowrap"
               onClick={async () => {
                 if (exporting || filteredCoconut.length === 0) return;
                 setExporting(true);
@@ -307,9 +379,10 @@ export default function ValidatorFarmers() {
                   }
                   const csv = buildCoconutCsv(
                     filteredCoconut,
-                    (c) => getSubmissionStatus(c),
+                    (c, hasAllFourFromBucket) => getSubmissionStatus(c, hasAllFourFromBucket),
                     getAreaHa,
-                    docLinksByCode
+                    docLinksByCode,
+                    hasAllFourDocsByCode
                   );
                   const name = `coconut-plantations${coconutSearch.trim() ? `-${coconutSearch.trim().slice(0, 20)}` : ""}-${new Date().toISOString().slice(0, 10)}.csv`;
                   downloadCsv(csv, name);
@@ -323,29 +396,41 @@ export default function ValidatorFarmers() {
               {exporting ? "Preparing export…" : "Download Excel"}
             </Button>
           </div>
+        </div>
+
+        <div className="space-y-4">
+          {coconutError && (
+            <div className="rounded-xl border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive flex items-center justify-between gap-3 flex-wrap">
+              <span>
+                Connection issue — could not load coconut plantations. This often happens when the network changes (e.g. Wi‑Fi or VPN). Check your connection and retry.
+              </span>
+              <Button variant="outline" size="sm" onClick={() => refetchCoconut()}>
+                Retry
+              </Button>
+            </div>
+          )}
           <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
             <div className="overflow-auto max-h-[calc(100vh-16rem)]">
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 z-10 bg-muted/70 backdrop-blur-sm">
+              <table className="w-full">
+                <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm border-b border-border">
                   <tr>
-                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">ID</th>
-                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Farmer Name</th>
-                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Phone</th>
-                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">District</th>
-                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Village</th>
-                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Date of Plantation</th>
-                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Agent</th>
-                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Area (ha)</th>
-                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
-                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Submitted</th>
-                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">KML</th>
-                    <th className="px-4 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Actions</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">ID</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Farmer Name</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">District</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Village</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Date of Plantation</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Agent</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Area (ha)</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Submitted</th>
+                    <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">KML</th>
+                    <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Actions</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-border/50">
                   {coconutLoading ? (
                     <tr>
-                      <td colSpan={12} className="text-center py-12 text-muted-foreground">
+                      <td colSpan={11} className="text-center py-12 text-muted-foreground">
                         Loading coconut plantations…
                       </td>
                     </tr>
@@ -362,39 +447,38 @@ export default function ValidatorFarmers() {
                         : null;
                       const submittedStr = submittedAt ? new Date(String(submittedAt)).toLocaleDateString() : "—";
                       return (
-                        <tr key={c.id ?? String(c.created_at ?? Math.random())} className="border-b border-border/80 hover:bg-muted/40 transition-colors">
-                          <td className="px-4 py-3.5 font-mono text-xs text-foreground">
+                        <tr key={c.id ?? String(c.created_at ?? Math.random())} className="hover:bg-muted/30 transition-colors">
+                          <td className="px-6 py-4 font-mono text-xs text-foreground">
                             {c.farmer_code && String(c.farmer_code) !== String(c.id) ? `${c.farmer_code} (${c.id ?? "—"})` : (c.id ?? "—")}
                           </td>
-                          <td className="px-4 py-3.5 font-medium text-foreground">{c.farmer_name ?? "—"}</td>
-                          <td className="px-4 py-3.5 text-muted-foreground">{c.phone ?? "—"}</td>
-                          <td className="px-4 py-3.5 text-muted-foreground">{c.district ?? "—"}</td>
-                          <td className="px-4 py-3.5 text-muted-foreground">{c.village ?? "—"}</td>
-                          <td className="px-4 py-3.5 text-muted-foreground text-sm whitespace-nowrap">
+                          <td className="px-6 py-4 font-medium text-foreground">{c.farmer_name ?? "—"}</td>
+                          <td className="px-6 py-4 text-muted-foreground">{c.district ?? "—"}</td>
+                          <td className="px-6 py-4 text-muted-foreground">{c.village ?? "—"}</td>
+                          <td className="px-6 py-4 text-muted-foreground text-sm whitespace-nowrap">
                             {c.date_of_plantation
                               ? new Date(c.date_of_plantation).toLocaleDateString()
                               : "—"}
                           </td>
-                          <td className="px-4 py-3.5 text-foreground">{c.agent_name ?? "—"}</td>
-                          <td className="px-4 py-3.5 tabular-nums">{areaHa != null ? Number(areaHa).toFixed(2) : "—"}</td>
-                          <td className="px-4 py-3.5">
+                          <td className="px-6 py-4 text-foreground">{c.agent_name ?? "—"}</td>
+                          <td className="px-6 py-4 tabular-nums font-medium">{areaHa != null ? Number(areaHa).toFixed(2) : "—"}</td>
+                          <td className="px-6 py-4">
                             {status === "Submitted" ? (
-                              <span className="inline-flex items-center rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-medium text-primary">
+                              <span className="inline-flex items-center rounded-full bg-green-100 text-green-800 px-3 py-1 text-xs font-medium">
                                 Submitted
                               </span>
                             ) : (
-                              <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                              <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 px-3 py-1 text-xs font-medium">
                                 Incomplete
                               </span>
                             )}
                           </td>
-                          <td className="px-4 py-3.5 text-muted-foreground text-sm whitespace-nowrap">{submittedStr}</td>
-                          <td className="px-4 py-3.5">
+                          <td className="px-6 py-4 text-muted-foreground text-sm whitespace-nowrap">{submittedStr}</td>
+                          <td className="px-6 py-4 text-center">
                             {hasGeoboundaries ? (
                               <Button
                                 variant="outline"
-                                size="icon"
-                                className="h-8 w-8"
+                                size="sm"
+                                className="h-8 w-8 rounded-lg border-green-200 text-green-600 hover:bg-green-50"
                                 title="Download KML"
                                 onClick={() => {
                                   const kml = buildKmlForPlots(plots, code || String(c.id ?? "plot"));
@@ -404,12 +488,12 @@ export default function ValidatorFarmers() {
                                 <Download className="h-4 w-4" />
                               </Button>
                             ) : (
-                              <span className="text-muted-foreground/60 text-xs">—</span>
+                              <span className="text-muted-foreground/40 text-xs">—</span>
                             )}
                           </td>
-                          <td className="px-4 py-3.5 text-right">
+                          <td className="px-6 py-4 text-right">
                             {c.id && (
-                              <Button variant="outline" size="icon" className="h-8 w-8" asChild>
+                              <Button variant="outline" size="sm" className="h-8 w-8 rounded-lg" asChild>
                                 <Link to={`/validator/farmers/coconut/${c.id}`} title="View">
                                   <Eye className="h-4 w-4" />
                                 </Link>
@@ -422,7 +506,7 @@ export default function ValidatorFarmers() {
                   )}
                   {!coconutLoading && filteredCoconut.length === 0 && (
                     <tr>
-                      <td colSpan={12} className="px-4 py-12 text-center text-muted-foreground">
+                      <td colSpan={11} className="px-6 py-12 text-center text-muted-foreground">
                         {coconutSearch.trim()
                           ? "No matching records for your search. Try a different ID, name, or district."
                           : "No rows in coconut_plantations table. Add data in Supabase or check RLS."}

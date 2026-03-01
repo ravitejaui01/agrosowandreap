@@ -2,16 +2,17 @@ import { Link } from "react-router-dom";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { FarmerRecord } from "@/types";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Eye } from "lucide-react";
+import { ArrowRight, Eye, Trash2 } from "lucide-react";
 
 interface RecentRecordsProps {
   records: FarmerRecord[];
   viewAllLink: string;
   showActions?: boolean;
   onView?: (record: FarmerRecord) => void;
+  onRemove?: (record: FarmerRecord) => void;
 }
 
-export function RecentRecords({ records, viewAllLink, showActions = false, onView }: RecentRecordsProps) {
+export function RecentRecords({ records, viewAllLink, showActions = false, onView, onRemove }: RecentRecordsProps) {
   return (
     <div className="rounded-xl border border-border bg-card animate-fade-in">
       <div className="flex items-center justify-between p-6 pb-4">
@@ -56,9 +57,17 @@ export function RecentRecords({ records, viewAllLink, showActions = false, onVie
                       variant="ghost"
                       size="sm"
                       onClick={() => onView?.(record)}
+                      className="mr-1"
                     >
                       <Eye className="h-4 w-4 mr-1" />
                       View
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onRemove?.(record)}
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </td>
                 )}

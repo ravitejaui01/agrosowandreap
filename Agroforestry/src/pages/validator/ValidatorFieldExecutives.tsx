@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { User } from "@/types";
 import { getUsers, getFarmerRecords } from "@/lib/api";
+import { getCoconutPlantationsFromSupabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -23,25 +24,69 @@ export default function ValidatorFieldExecutives() {
     queryKey: ["validator-farmer-records"],
     queryFn: () => getFarmerRecords(),
   });
+  const { data: coconutPlantations = [] } = useQuery({
+    queryKey: ["coconut-plantations-supabase"],
+    queryFn: () => getCoconutPlantationsFromSupabase(),
+  });
 
   const fieldExecutives = useMemo(() => {
-    const agents = users.filter((u) => u.role === "field_agent");
-    return agents.map((agent) => {
-      const submissions = records.filter((r) => r.createdBy === agent.id);
-      const pendingReview = submissions.filter(
-        (r) => r.status === "submitted" || r.status === "under_review"
-      ).length;
-      const verified = submissions.filter(
-        (r) => r.status === "verified" || r.status === "approved"
-      ).length;
+    // Get unique agent names from coconut plantation data (this matches the Agent column in Farmer Records)
+    const uniqueAgents = [...new Set(
+      coconutPlantations
+        .map(p => p.agent_name)
+        .filter(name => name && name.trim() !== "")
+    )];
+
+    // Debug: Log agent data
+    if (import.meta.env.DEV) {
+      console.log("[ValidatorFieldExecutives] Coconut plantations:", coconutPlantations.length);
+      console.log("[ValidatorFieldExecutives] Unique agents from data:", uniqueAgents);
+      console.log("[ValidatorFieldExecutives] All users:", users.map(u => ({ id: u.id, name: u.name, role: u.role })));
+    }
+    
+    // Create field executive objects from agent names
+    const agents = uniqueAgents.map(agentName => {
+      // Find matching user by name
+      const matchingUser = users.find(u => 
+        u.name.toLowerCase() === agentName.toLowerCase() ||
+        u.name.toLowerCase().includes(agentName.toLowerCase()) ||
+        agentName.toLowerCase().includes(u.name.toLowerCase())
+      );
+      
+      // Calculate stats from coconut plantation data
+      const agentSubmissions = coconutPlantations.filter(p => p.agent_name === agentName);
+      const totalSubmissions = agentSubmissions.length;
+      
+      // For coconut data, we'll calculate completion status based on document completeness
+      const completedSubmissions = agentSubmissions.filter(p => {
+        // Check if record has all required documents (similar to ValidatorFarmers logic)
+        const hasAadhaar = p.aadhaar && String(p.aadhaar).trim() !== "";
+        const hasAgreement = p.agreement_url && String(p.agreement_url).trim() !== "";
+        const hasRTC = p.land_patta_survey_number && String(p.land_patta_survey_number).trim() !== "";
+        const hasBank = p.bank_account && String(p.bank_account).trim() !== "";
+        return hasAadhaar && hasAgreement && hasRTC && hasBank;
+      }).length;
+      
+      const pendingReview = totalSubmissions - completedSubmissions;
+      
       return {
-        ...agent,
-        totalSubmissions: submissions.length,
+        id: matchingUser?.id || `agent-${agentName}`,
+        name: agentName,
+        email: matchingUser?.email || "no-email@found.com",
+        role: "field_agent" as any,
+        totalSubmissions,
         pendingReview,
-        verified,
+        verified: completedSubmissions,
       } as FieldExecutiveWithStats;
     });
-  }, [users, records]);
+    
+    // Debug: Log final agents
+    if (import.meta.env.DEV) {
+      console.log("[ValidatorFieldExecutives] Final agents:", agents.map(a => ({ name: a.name, total: a.totalSubmissions, pending: a.pendingReview, verified: a.verified })));
+    }
+    
+    return agents;
+  }, [users, records, coconutPlantations]);
 
   return (
     <DashboardLayout userRole="data_validator" userName="Mary Wanjiku">
