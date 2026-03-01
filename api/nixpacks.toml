@@ -1,6 +1,6 @@
 # Railway uses Nixpacks by default. Root is api/ when deployed from monorepo.
 [phases.setup]
-nixPkgs = ["nodejs_18"]
+nixPkgs = ["nodejs_20"]
 
 [phases.install]
 cmds = ["npm ci"]
