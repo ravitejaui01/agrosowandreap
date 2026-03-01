@@ -12,8 +12,15 @@
   ],
   "routes": [
     {
+      "src": "/api/(.*)",
+      "dest": "https://api-production-de18.up.railway.app/api/$1"
+    },
+    {
       "src": "/(.*)",
       "dest": "/Agroforestry/index.html"
     }
-  ]
+  ],
+  "env": {
+    "VITE_PROXY_TARGET": "https://api-production-de18.up.railway.app"
+  }
 }
