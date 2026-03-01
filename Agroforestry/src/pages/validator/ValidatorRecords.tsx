@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { RecentRecords } from "@/components/dashboard/RecentRecords";
-import { getFarmerRecords, deleteFarmerRecord } from "@/lib/api";
+import { getFarmerRecordsFromSupabase, deleteFarmerRecord } from "@/lib/supabase";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,7 +52,7 @@ export default function ValidatorRecords() {
 
   const { data: records = [], isLoading } = useQuery({
     queryKey: ["validator-farmer-records"],
-    queryFn: () => getFarmerRecords(),
+    queryFn: () => getFarmerRecordsFromSupabase(),
     refetchInterval: 30000, // Auto-refresh every 30s so new Coconut Registrations appear automatically
   });
 

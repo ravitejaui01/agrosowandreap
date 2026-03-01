@@ -228,6 +228,33 @@ export async function getCoconutPlantationByIdFromSupabase(
   return data as CoconutPlantationRow | null;
 }
 
+/** Fetch all farmer records from Supabase */
+export async function getFarmerRecordsFromSupabase(): Promise<any[]> {
+  if (!supabase) {
+    console.warn("Supabase not configured (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY)");
+    return [];
+  }
+  const { data, error } = await supabase
+    .from("farmer_records")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) {
+    console.error("Supabase farmer_records error:", error.message);
+    return [];
+  }
+  return data || [];
+}
+
+/** Delete a farmer record from Supabase */
+export async function deleteFarmerRecord(id: string): Promise<boolean> {
+  if (!supabase) return false;
+  const { error } = await supabase
+    .from("farmer_records")
+    .delete()
+    .eq("id", id);
+  return !error;
+}
+
 /**
  * Supabase Storage: public bucket "documents", path {farmerCode}/{filename}.
  * Example: https://xxx.supabase.co/storage/v1/object/public/documents/23832/23832_agreement.pdf
