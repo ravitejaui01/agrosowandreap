@@ -1,6 +1,9 @@
 {
   "name": "sowandreap-agroforestry",
   "private": true,
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "push": "bash scripts/push.sh",
     "predev": "bash scripts/auto-setup-db.sh",
@@ -12,7 +15,9 @@
     "db:up": "docker-compose up -d",
     "db:init": "cd api && npm run db:init",
     "sync:coconut": "cd api && npm run sync:coconut",
-    "db:setup": "bash scripts/setup-db.sh"
+    "db:setup": "bash scripts/setup-db.sh",
+    "build": "cd Agroforestry && npm run build",
+    "start": "cd Agroforestry && npm run preview"
   },
   "devDependencies": {
     "concurrently": "^9.0.0"
