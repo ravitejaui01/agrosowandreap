@@ -1,11 +1,8 @@
 #!/usr/bin/env node
 
 /**
- * Automatic Supabase Setup Script
- * This script will:
- * 1. Create Supabase tables
- * 2. Add sample data
- * 3. Verify setup
+ * Simple Supabase Setup Script
+ * This script will add sample data directly to existing tables
  */
 
 const { createClient } = require('@supabase/supabase-js');
@@ -25,27 +22,6 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey);
-
-async function executeSQLFile(filePath) {
-  console.log(`📄 Reading SQL file: ${filePath}`);
-  const sql = fs.readFileSync(filePath, 'utf8');
-  
-  console.log('🔄 Executing SQL migration...');
-  try {
-    const { data, error } = await supabase.rpc('exec_sql', { sql_query: sql });
-    
-    if (error) {
-      console.error('❌ SQL execution failed:', error);
-      return false;
-    }
-    
-    console.log('✅ SQL migration completed successfully');
-    return true;
-  } catch (err) {
-    console.error('❌ SQL execution error:', err.message);
-    return false;
-  }
-}
 
 async function addSampleData() {
   console.log('🌱 Adding sample coconut plantation data...');
@@ -185,26 +161,26 @@ async function verifySetup() {
     // Check coconut_plantations
     const { data: coconutData, error: coconutError } = await supabase
       .from('coconut_plantations')
-      .select('count(*)')
-      .single();
+      .select('*')
+      .limit(5);
 
     // Check farmer_records  
     const { data: farmerData, error: farmerError } = await supabase
       .from('farmer_records')
-      .select('count(*)')
-      .single();
+      .select('*')
+      .limit(5);
 
     if (coconutError || farmerError) {
       console.error('❌ Verification failed:', coconutError || farmerError);
       return false;
     }
 
-    const coconutCount = coconutData?.count || 0;
-    const farmerCount = farmerData?.count || 0;
+    const coconutCount = coconutData?.length || 0;
+    const farmerCount = farmerData?.length || 0;
 
     console.log(`✅ Verification successful:`);
-    console.log(`   🌴 Coconut Plantations: ${coconutCount} records`);
-    console.log(`   👨‍🌾 Farmer Records: ${farmerCount} records`);
+    console.log(`   🌴 Coconut Plantations: ${coconutCount} records found`);
+    console.log(`   👨‍🌾 Farmer Records: ${farmerCount} records found`);
     
     return true;
   } catch (err) {
@@ -214,21 +190,10 @@ async function verifySetup() {
 }
 
 async function main() {
-  console.log('🚀 Starting automatic Supabase setup...\n');
+  console.log('🚀 Starting automatic Supabase data setup...\n');
 
   try {
-    // Step 1: Execute migration
-    const migrationPath = path.join(__dirname, '../api/src/db/migrations/002_create_supabase_tables.sql');
-    const migrationSuccess = await executeSQLFile(migrationPath);
-    
-    if (!migrationSuccess) {
-      console.error('❌ Migration failed. Stopping setup.');
-      process.exit(1);
-    }
-
-    console.log('');
-
-    // Step 2: Add sample data
+    // Step 1: Add sample data
     const coconutSuccess = await addSampleData();
     const farmerSuccess = await addSampleFarmerRecords();
     
@@ -239,7 +204,7 @@ async function main() {
 
     console.log('');
 
-    // Step 3: Verify setup
+    // Step 2: Verify setup
     const verificationSuccess = await verifySetup();
     
     if (!verificationSuccess) {
@@ -247,11 +212,15 @@ async function main() {
       process.exit(1);
     }
 
-    console.log('\n🎉 Supabase setup completed successfully!');
+    console.log('\n🎉 Supabase data setup completed successfully!');
     console.log('📱 Your application should now show data in:');
     console.log('   - Coconut Plantations page');
     console.log('   - Farmer Records page');
     console.log('   - Validator Dashboard');
+    console.log('\n📝 Note: If tables don\'t exist, please run the SQL migration manually:');
+    console.log('   1. Go to Supabase Dashboard → SQL Editor');
+    console.log('   2. Copy contents of api/src/db/migrations/002_create_supabase_tables.sql');
+    console.log('   3. Execute the SQL script');
     
   } catch (error) {
     console.error('❌ Setup failed:', error.message);
