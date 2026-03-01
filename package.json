@@ -16,10 +16,13 @@
     "db:init": "cd api && npm run db:init",
     "sync:coconut": "cd api && npm run sync:coconut",
     "db:setup": "bash scripts/setup-db.sh",
+    "setup:supabase": "node scripts/setup-supabase.js",
     "build": "cd Agroforestry && npm ci && npm run build",
     "start": "cd Agroforestry && npm run preview"
   },
   "devDependencies": {
-    "concurrently": "^9.0.0"
+    "concurrently": "^9.0.0",
+    "dotenv": "^16.3.1",
+    "@supabase/supabase-js": "^2.38.0"
   }
 }
