@@ -2,9 +2,8 @@ import { useState, useMemo, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { getCoconutPlantationByIdFromSupabase, listDocumentsByFarmerCode, getPlotsFromRow } from "@/lib/supabase";
+import { getCoconutPlantationByIdFromSupabase, getCoconutPlantationsFromSupabase, listDocumentsByFarmerCode, getPlotsFromRow } from "@/lib/supabase";
 import type { CoconutPlantationRow, CoconutPlotRow } from "@/lib/supabase";
-import { getCoconutPlantationById, getCoconutPlantationByFarmerCode, getCoconutPlantations, updateFarmerRecord, ensureFarmerRecordFromCoconut } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -236,7 +235,7 @@ export default function ValidatorCoconutDetail() {
 
   const { data: apiRowById, isFetched: apiByIdFetched } = useQuery({
     queryKey: ["coconut-plantation-api", id],
-    queryFn: () => getCoconutPlantationById(id!),
+    queryFn: () => getCoconutPlantationByIdFromSupabase(id!),
     enabled: !!id,
     retry: false,
   });
@@ -244,7 +243,7 @@ export default function ValidatorCoconutDetail() {
   const farmerCodeForApi = row?.farmer_code ?? row?.farmer_id ?? (row as unknown as Record<string, unknown> | undefined)?.id;
   const { data: apiRowByFarmerCode, isFetched: apiByCodeFetched } = useQuery({
     queryKey: ["coconut-plantation-api-by-farmer-code", farmerCodeForApi],
-    queryFn: () => getCoconutPlantationByFarmerCode(String(farmerCodeForApi)),
+    queryFn: () => getCoconutPlantationByIdFromSupabase(String(farmerCodeForApi)),
     enabled: !!farmerCodeForApi && !!apiByIdFetched && apiRowById == null,
     retry: false,
   });
@@ -253,7 +252,7 @@ export default function ValidatorCoconutDetail() {
   const { data: apiRowFromList } = useQuery({
     queryKey: ["coconut-plantation-api-list-match", id, tryListMatch, row?.id, row?.farmer_code, row?.phone],
     queryFn: async () => {
-      const list = await getCoconutPlantations();
+      const list = await getCoconutPlantationsFromSupabase();
       const r = row as Record<string, unknown>;
       const match = list.find(
         (item) => {
