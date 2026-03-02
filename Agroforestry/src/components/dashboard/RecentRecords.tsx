@@ -42,7 +42,7 @@ export function RecentRecords({ records, viewAllLink, showActions = false, onVie
               <tr key={record.id}>
                 <td className="font-mono text-xs">{record.farmerId}</td>
                 <td className="font-medium">
-                  {record.firstName} {record.lastName}
+                  {record.firstName || record.first_name} {record.lastName || record.last_name}
                 </td>
                 <td className="text-muted-foreground">{record.district}</td>
                 <td>

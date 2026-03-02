@@ -68,7 +68,7 @@ export default function ValidatorRecords() {
   });
 
   const handleRemoveRecord = async (record: FarmerRecord) => {
-    if (window.confirm(`Are you sure you want to remove the record for ${record.firstName} ${record.lastName}?`)) {
+    if (window.confirm(`Are you sure you want to remove the record for ${record.firstName || record.first_name} ${record.lastName || record.last_name}?`)) {
       await deleteMutation.mutateAsync(record.id);
       // Add to removed records and save to localStorage
       addToRemovedRecords(record.id);
@@ -81,6 +81,8 @@ export default function ValidatorRecords() {
       const testRecords = records.filter(record => 
         record.firstName?.toLowerCase().includes("test") ||
         record.lastName?.toLowerCase().includes("test") ||
+        record.first_name?.toLowerCase().includes("test") ||
+        record.last_name?.toLowerCase().includes("test") ||
         record.farmerId?.toLowerCase().includes("test")
       );
       
@@ -112,7 +114,7 @@ export default function ValidatorRecords() {
       if (removedRecordIds.has(record.id)) return false;
       
       const query = search.toLowerCase();
-      const fullName = `${record.firstName ?? ""} ${record.lastName ?? ""}`.toLowerCase();
+      const fullName = `${record.firstName || record.first_name || ""} ${record.lastName || record.last_name || ""}`.toLowerCase();
       const farmerId = (record.farmerId ?? "").toLowerCase();
       const district = (record.district ?? "").toLowerCase();
       const matchesSearch =

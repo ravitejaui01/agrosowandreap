@@ -113,7 +113,15 @@ async function addSampleFarmerRecords() {
       farming_type: 'commercial',
       status: 'verified',
       created_by: 'system',
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      // Add coconut-specific fields to match coconut_plantations
+      date_of_plantation: '2024-01-15',
+      agent_name: 'Agent Smith',
+      total_area_hectares: 2.5,
+      area_under_coconut_hectares: 1.8,
+      seedlings_planted: 120,
+      seedlings_survived: 115,
+      block_tehsil_mandal: 'Kalyandurg'
     },
     {
       id: 'farmer_002',
@@ -132,7 +140,42 @@ async function addSampleFarmerRecords() {
       farming_type: 'subsistence',
       status: 'submitted',
       created_by: 'system',
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      // Add coconut-specific fields to match coconut_plantations
+      date_of_plantation: '2024-02-20',
+      agent_name: 'Agent Johnson',
+      total_area_hectares: 1.2,
+      area_under_coconut_hectares: 0.9,
+      seedlings_planted: 80,
+      seedlings_survived: 75,
+      block_tehsil_mandal: 'Nandyal'
+    },
+    {
+      id: 'farmer_003',
+      farmer_id: 'FR003',
+      first_name: 'Venkatesh',
+      last_name: 'Reddy',
+      phone_number: '+919876543211',
+      email: 'venkatesh@example.com',
+      village: 'Tirupati',
+      district: 'Chittoor',
+      region: 'Andhra Pradesh',
+      country: 'India',
+      land_size: 3.0,
+      land_unit: 'hectares',
+      crop_types: ['coconut'],
+      farming_type: 'commercial',
+      status: 'verified',
+      created_by: 'system',
+      created_at: new Date().toISOString(),
+      // Add coconut-specific fields to match coconut_plantations
+      date_of_plantation: '2024-03-10',
+      agent_name: 'Agent Williams',
+      total_area_hectares: 3.0,
+      area_under_coconut_hectares: 2.5,
+      seedlings_planted: 150,
+      seedlings_survived: 145,
+      block_tehsil_mandal: 'Tirupati'
     }
   ];
 

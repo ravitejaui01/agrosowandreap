@@ -93,7 +93,46 @@ CREATE TABLE IF NOT EXISTS farmer_records (
   status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','submitted','under_review','corrections_needed','verified','approved','rejected')),
   created_by TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  -- Coconut plantation specific fields (to match coconut_plantations)
+  date_of_plantation DATE,
+  agent_name TEXT,
+  total_area_hectares NUMERIC,
+  area_under_coconut_hectares NUMERIC,
+  seedlings_planted INT,
+  seedlings_survived INT,
+  block_tehsil_mandal TEXT,
+  active_status TEXT,
+  spacing TEXT,
+  number_of_plots INT,
+  land_ownership TEXT,
+  land_use_before_plantation TEXT,
+  type_of_variety TEXT,
+  plantation_model TEXT,
+  source_of_nursery TEXT,
+  size_of_pit TEXT,
+  mode_of_irrigation TEXT,
+  kharif_crop TEXT,
+  kharif_crop_duration_days INT,
+  rabi_crop TEXT,
+  rabi_crop_duration_days INT,
+  nitrogen_qty_kg NUMERIC,
+  phosphorous_qty_kg NUMERIC,
+  potassium_qty_kg NUMERIC,
+  organic_qty_kg NUMERIC,
+  other_qty_kg NUMERIC,
+  cost_of_seedlings NUMERIC,
+  fencing_propping_shading NUMERIC,
+  land_preparation NUMERIC,
+  manure_expenses NUMERIC,
+  irrigation_expenses NUMERIC,
+  weed_management NUMERIC,
+  plant_protection NUMERIC,
+  agriculture_implements NUMERIC,
+  manpower_expenses NUMERIC,
+  annual_fertilizers NUMERIC,
+  annual_irrigations NUMERIC,
+  annual_manpower NUMERIC
 );
 
 -- Enable Row Level Security
@@ -134,9 +173,10 @@ INSERT INTO coconut_plantations (id, farmer_name, agent_name, date_of_plantation
 ### Sample Farmer Records
 
 ```sql
-INSERT INTO farmer_records (id, farmer_id, first_name, last_name, phone_number, email, village, district, region, country, land_size, land_unit, crop_types, farming_type, status, created_by, created_at) VALUES
-('farmer_001', 'FR001', 'Ramesh', 'Kumar', '+919876543210', 'ramesh@example.com', 'Kalyandurg', 'Anantapur', 'Andhra Pradesh', 'India', 2.5, 'hectares', ARRAY['coconut', 'mango'], 'commercial', 'verified', 'system', NOW()),
-('farmer_002', 'FR002', 'Sita', 'Devi', '+918765432109', 'sita@example.com', 'Nandyal', 'Kurnool', 'Andhra Pradesh', 'India', 1.2, 'hectares', ARRAY['coconut'], 'subsistence', 'submitted', 'system', NOW());
+INSERT INTO farmer_records (id, farmer_id, first_name, last_name, phone_number, email, village, district, region, country, land_size, land_unit, crop_types, farming_type, status, created_by, created_at, date_of_plantation, agent_name, total_area_hectares, area_under_coconut_hectares, seedlings_planted, seedlings_survived, block_tehsil_mandal) VALUES
+('farmer_001', 'FR001', 'Ramesh', 'Kumar', '+919876543210', 'ramesh@example.com', 'Kalyandurg', 'Anantapur', 'Andhra Pradesh', 'India', 2.5, 'hectares', ARRAY['coconut', 'mango'], 'commercial', 'verified', 'system', NOW(), '2024-01-15', 'Agent Smith', 2.5, 1.8, 120, 115, 'Kalyandurg'),
+('farmer_002', 'FR002', 'Sita', 'Devi', '+918765432109', 'sita@example.com', 'Nandyal', 'Kurnool', 'Andhra Pradesh', 'India', 1.2, 'hectares', ARRAY['coconut'], 'subsistence', 'submitted', 'system', NOW(), '2024-02-20', 'Agent Johnson', 1.2, 0.9, 80, 75, 'Nandyal'),
+('farmer_003', 'FR003', 'Venkatesh', 'Reddy', '+919876543211', 'venkatesh@example.com', 'Tirupati', 'Chittoor', 'Andhra Pradesh', 'India', 3.0, 'hectares', ARRAY['coconut'], 'commercial', 'verified', 'system', NOW(), '2024-03-10', 'Agent Williams', 3.0, 2.5, 150, 145, 'Tirupati');
 ```
 
 ## ✅ Verification
