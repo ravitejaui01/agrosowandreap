@@ -544,7 +544,7 @@ export default function ValidatorCoconutDetail() {
                       <dt className="text-muted-foreground">Farmer Code</dt>
                       <dd className="font-mono">{row.id ?? "—"}</dd>
                       <dt className="text-muted-foreground">Farmer Name</dt>
-                      <dd>{row.farmer_name ?? "—"}</dd>
+                      <dd>{(row.farmer_name || row.first_name) ?? "—"}</dd>
                       <dt className="text-muted-foreground">Aadhaar</dt>
                       <dd>{row.aadhaar ?? "—"}</dd>
                       <dt className="text-muted-foreground">Submission Date</dt>

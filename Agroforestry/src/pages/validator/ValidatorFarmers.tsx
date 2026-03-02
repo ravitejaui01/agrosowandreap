@@ -206,7 +206,7 @@ export default function ValidatorFarmers() {
   const filteredCoconut = useMemo(() => {
     const q = String(coconutSearch).toLowerCase().trim();
     if (!q) return coconutPlantations;
-    const exactMatch = coconutPlantations.filter((c: CoconutSubmission) => {
+    const exactMatch = coconutPlantations.filter((c: CoconutPlantationRow) => {
       try {
         const id = String(c.id ?? "").toLowerCase();
         const farmerCode = String(c.id ?? "").toLowerCase();
@@ -217,7 +217,7 @@ export default function ValidatorFarmers() {
       }
     });
     if (exactMatch.length > 0) return exactMatch;
-    return coconutPlantations.filter((c: CoconutSubmission) => {
+    return coconutPlantations.filter((c: CoconutPlantationRow) => {
       try {
         const id = String(c.id ?? "").toLowerCase();
         const farmerCode = String(c.id ?? "").toLowerCase();
