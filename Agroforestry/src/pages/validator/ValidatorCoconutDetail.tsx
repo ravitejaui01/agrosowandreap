@@ -325,6 +325,19 @@ export default function ValidatorCoconutDetail() {
     }
   }, [row]);
 
+  // Debug: Log the actual row data to see what fields are present
+  if (import.meta.env.DEV && row) {
+    console.log("[ValidatorCoconutDetail] Full row data:", {
+      id: row.id,
+      farmer_name: row.farmer_name,
+      agent_name: row.agent_name,
+      date_of_plantation: row.date_of_plantation,
+      created_at: row.created_at,
+      // Check if coconut fields exist
+      has_coconut_fields: !!(row.date_of_plantation || row.agent_name)
+    });
+  }
+
   const totalAreaHa = useMemo(() => {
     const r = displayRow ?? (row as Record<string, unknown>);
     if (!r) return 0;
