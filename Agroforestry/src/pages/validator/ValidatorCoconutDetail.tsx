@@ -143,7 +143,7 @@ function PlotGeoboundariesModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-7xl max-h-[95vh] flex flex-col p-4">
+      <DialogContent className="max-w-7xl max-h-[98vh] flex flex-col p-4">
         <DialogHeader className="pb-3">
           <DialogTitle className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -168,7 +168,7 @@ function PlotGeoboundariesModal({
           <MapContainer
             center={center}
             zoom={13}
-            className="h-full w-full min-h-[600px]"
+            className="h-full w-full min-h-[700px]"
             scrollWheelZoom={true}
             style={{ background: '#1a1a1a' }}
           >
