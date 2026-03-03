@@ -192,11 +192,11 @@ function PlotGeoboundariesModal({
                 pathOptions={{
                   color: i === 0 ? "#dc2626" : "#f59e0b",
                   fillColor: i === 0 ? "#dc2626" : "#f59e0b",
-                  fillOpacity: 0.25,
+                  fillOpacity: 0,
                   weight: 3,
                   opacity: 0.9,
                   dashArray: i === 0 ? undefined : "10, 5",
-                  className: "plot-polygon hover:fill-opacity-40 transition-all cursor-pointer"
+                  className: "plot-polygon hover:fill-opacity-0 transition-all cursor-pointer"
                 }}
               >
                 <Tooltip
