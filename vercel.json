@@ -17,7 +17,7 @@
     },
     {
       "src": "/(.*)",
-      "dest": "/Agroforestry/index.html"
+      "dest": "/index.html"
     }
   ],
   "env": {
