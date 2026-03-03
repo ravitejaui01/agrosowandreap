@@ -212,6 +212,12 @@ function PlotGeoboundariesModal({
                     <div className="space-y-1 text-sm">
                       {formatFarmerDetail("Farmer Code", farmerData?.id ?? farmerData?.farmer_code)}
                       {formatFarmerDetail("Farmer Name", farmerData?.farmer_name)}
+                      {formatFarmerDetail("Phone Number", farmerData?.phone ?? farmerData?.phone_number ?? farmerData?.mobile ?? farmerData?.mobile_number)}
+                      {formatFarmerDetail("Aadhar Number", farmerData?.aadhaar ?? farmerData?.aadhaar_number ?? farmerData?.aadhar)}
+                      {formatFarmerDetail("Create Date", farmerData?.created_at ? new Date(String(farmerData.created_at)).toLocaleDateString() : null)}
+                      {formatFarmerDetail("Updated Date", farmerData?.updated_at ? new Date(String(farmerData.updated_at)).toLocaleDateString() : null)}
+                      {formatFarmerDetail("Field Agent Name", farmerData?.field_agent_name ?? farmerData?.agent_name ?? farmerData?.surveyor_name)}
+                      {formatFarmerDetail("Date of Plantation", farmerData?.plantation_date ?? farmerData?.date_of_plantation ?? farmerData?.coconut_plantation_date)}
                       {formatFarmerDetail("Submission Date", farmerData?.created_at ? new Date(String(farmerData.created_at)).toLocaleDateString() : null)}
                       {landDetails.ownership && formatFarmerDetail("Land Ownership", landDetails.ownership)}
                       {landDetails.patta && formatFarmerDetail("Land Patta/Survey", landDetails.patta)}
