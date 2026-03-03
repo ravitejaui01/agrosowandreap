@@ -578,3 +578,34 @@ export async function updateCoconutPlantationStatus(
   if (error) return { ok: false, error: error.message };
   return { ok: true };
 }
+
+/** Clear all farmer records from Supabase for fresh start */
+export async function clearAllFarmerRecords(): Promise<{ ok: boolean; error?: string }> {
+  if (!supabase) return { ok: false, error: "Supabase not configured" };
+  
+  try {
+    // Delete from all related tables in correct order to avoid foreign key constraints
+    const { error: historyError } = await supabase
+      .from("validation_history")
+      .delete()
+      .neq("id", ""); // Delete all records
+    
+    const { error: docsError } = await supabase
+      .from("documents")
+      .delete()
+      .neq("id", ""); // Delete all records
+    
+    const { error: recordsError } = await supabase
+      .from("farmer_records")
+      .delete()
+      .neq("id", ""); // Delete all records
+
+    if (historyError) return { ok: false, error: `History: ${historyError.message}` };
+    if (docsError) return { ok: false, error: `Documents: ${docsError.message}` };
+    if (recordsError) return { ok: false, error: `Records: ${recordsError.message}` };
+    
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Unknown error" };
+  }
+}

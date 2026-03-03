@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { StatsCard } from "@/components/dashboard/StatsCard";
 import { getFarmerStats, getFarmerRecords } from "@/lib/api";
+import { clearAllFarmerRecords } from "@/lib/supabase";
 import { FileText, Clock, CheckCircle2, AlertTriangle, Users, TrendingUp, Activity, BarChart3 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,9 +19,23 @@ export default function ValidatorDashboard() {
   });
 
   // Clear all records on fresh deployment
-  const clearAllRecords = () => {
+  const clearAllRecords = async () => {
+    // Clear localStorage
     localStorage.removeItem('removedValidatorRecords');
     setRemovedRecordIds(new Set());
+    
+    // Clear Supabase data
+    try {
+      const result = await clearAllFarmerRecords();
+      if (result.ok) {
+        // Refetch data to update the UI
+        window.location.reload();
+      } else {
+        console.error("Failed to clear Supabase records:", result.error);
+      }
+    } catch (error) {
+      console.error("Error clearing records:", error);
+    }
   };
 
   const { data: stats, isLoading: statsLoading } = useQuery({
