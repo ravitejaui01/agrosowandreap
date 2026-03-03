@@ -173,22 +173,28 @@ export function getPlotsFromRow(row: CoconutPlantationRow | null | undefined): C
 
 const PAGE_SIZE = 1000;
 
-/** Fetch all rows from coconut_plantations table in Supabase (paginates to get full count, e.g. 15,330+) */
+/**
+ * Fetch all rows from coconut_plantations using cursor-based pagination.
+ * Avoids large OFFSETs (e.g. offset=7000) which cause "statement timeout" on big tables.
+ */
 export async function getCoconutPlantationsFromSupabase(): Promise<CoconutPlantationRow[]> {
   if (!supabase) {
     console.warn("Supabase not configured (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY)");
     return [];
   }
   const all: CoconutPlantationRow[] = [];
-  let from = 0;
+  let cursorCreatedAt: string | null = null;
   let hasMore = true;
   while (hasMore) {
-    const to = from + PAGE_SIZE - 1;
-    const { data, error } = await supabase
+    let q = supabase
       .from("coconut_plantations")
       .select("*")
       .order("created_at", { ascending: false })
-      .range(from, to);
+      .limit(PAGE_SIZE);
+    if (cursorCreatedAt != null) {
+      q = q.lt("created_at", cursorCreatedAt);
+    }
+    const { data, error } = await q;
     if (error) {
       console.error("Supabase coconut_plantations error:", error.message);
       break;
@@ -196,7 +202,12 @@ export async function getCoconutPlantationsFromSupabase(): Promise<CoconutPlanta
     const page = (data ?? []) as CoconutPlantationRow[];
     all.push(...page);
     hasMore = page.length === PAGE_SIZE;
-    from += PAGE_SIZE;
+    if (hasMore && page.length > 0) {
+      const last = page[page.length - 1];
+      const raw = last.created_at ?? (last as Record<string, unknown>).createdAt;
+      cursorCreatedAt = raw != null ? String(raw) : null;
+      if (cursorCreatedAt == null) hasMore = false;
+    }
   }
   return all;
 }
@@ -228,7 +239,7 @@ export async function getCoconutPlantationByIdFromSupabase(
   return data as CoconutPlantationRow | null;
 }
 
-/** Fetch all farmer records from Supabase */
+/** Fetch all farmer records from Supabase (with camelCase aliases for UI). */
 export async function getFarmerRecordsFromSupabase(): Promise<any[]> {
   if (!supabase) {
     console.warn("Supabase not configured (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY)");
@@ -242,7 +253,14 @@ export async function getFarmerRecordsFromSupabase(): Promise<any[]> {
     console.error("Supabase farmer_records error:", error.message);
     return [];
   }
-  return data || [];
+  const rows = data || [];
+  return rows.map((r: Record<string, unknown>) => ({
+    ...r,
+    farmerId: r.farmer_id ?? r.farmerId,
+    firstName: r.first_name ?? r.firstName,
+    lastName: r.last_name ?? r.lastName,
+    createdAt: r.created_at ?? r.createdAt,
+  }));
 }
 
 /** Delete a farmer record from Supabase */
@@ -256,30 +274,307 @@ export async function deleteFarmerRecord(id: string): Promise<boolean> {
 }
 
 /**
- * Supabase Storage: public bucket "documents", path {farmerCode}/{filename}.
- * Example: https://xxx.supabase.co/storage/v1/object/public/documents/23832/23832_agreement.pdf
+ * Supabase Storage: bucket "documents".
+ * Convention: folder = farmer id (e.g. 30809), files = {id}_{type}.ext
+ * (e.g. 30809_aadhaar.png, 30809_agreement.pdf, 30809_bank.png, 30809_rtc.pdf).
  */
 const DOCUMENTS_BUCKET = "documents";
 
-/** List documents in bucket "documents" under folder {farmerCode}. Returns public URLs for each file. */
+const DOCUMENTS_SIGNED_URL_EXPIRY_SEC = 3600; // 1 hour
+
+/** Public URL for a storage file path. Use for public buckets. */
+function getDocumentPublicUrl(path: string): string {
+  if (!supabase) return "";
+  const hasExt = /\.(pdf|png|jpg|jpeg|gif|webp|bmp|tiff?|heic)$/i.test(path.split("/").pop() ?? "");
+  if (!hasExt) return "";
+  const { data } = supabase.storage.from(DOCUMENTS_BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+}
+
+/** Signed URL for a storage file path. Use for private buckets to avoid 404. */
+async function getDocumentSignedUrl(path: string): Promise<string> {
+  if (!supabase) return "";
+  const hasExt = /\.(pdf|png|jpg|jpeg|gif|webp|bmp|tiff?|heic)$/i.test(path.split("/").pop() ?? "");
+  if (!hasExt) return getDocumentPublicUrl(path);
+  const { data, error } = await supabase.storage
+    .from(DOCUMENTS_BUCKET)
+    .createSignedUrl(path, DOCUMENTS_SIGNED_URL_EXPIRY_SEC);
+  if (error || !data?.signedUrl) return getDocumentPublicUrl(path);
+  return data.signedUrl;
+}
+
+/** List documents in bucket "documents" under folder {farmerCode}. Returns URLs. Retries once on error (e.g. 429/544). */
 export async function listDocumentsByFarmerCode(
-  farmerCode: string
+  farmerCode: string,
+  retried = false,
+  /** When true, use public URLs only (no signed URL calls) — much faster for CSV export */
+  usePublicUrls = false
 ): Promise<{ path: string; name: string; url: string }[]> {
   if (!supabase) return [];
-  const folderPath = farmerCode;
-  const { data: list, error } = await supabase.storage
-    .from(DOCUMENTS_BUCKET)
-    .list(folderPath, { limit: 100 });
-  if (error) {
-    console.warn("Supabase storage list error:", error.message);
+  const folderPath = String(farmerCode ?? "").trim();
+  if (!folderPath) return [];
+
+  const files: { path: string; name: string }[] = [];
+  let firstListError: string | null = null;
+  let rateLimited = false;
+  const hasFileExtension = (name: string) => /\.(pdf|png|jpg|jpeg|gif|webp|bmp|tiff?|heic)$/i.test(name);
+
+  const addFile = (path: string, name: string) => {
+    files.push({ path, name });
+  };
+
+  const is429 = (msg: string) => /429|too many requests/i.test(msg);
+
+  const LIST_PAGE_SIZE = 1000;
+  const collectFromFolder = async (folderName: string) => {
+    let offset = 0;
+    let hasMore = true;
+    while (hasMore) {
+      const { data: list, error } = supabase!.storage
+        .from(DOCUMENTS_BUCKET)
+        .list(folderName, { limit: LIST_PAGE_SIZE, offset });
+      if (error) {
+        if (!firstListError) firstListError = error.message;
+        if (is429(error.message)) rateLimited = true;
+        return;
+      }
+      const items = list ?? [];
+      for (const f of items) {
+        if (!f.name) continue;
+        const fullPath = folderName ? `${folderName}/${f.name}` : f.name;
+        if (hasFileExtension(f.name)) {
+          addFile(fullPath, f.name);
+        } else {
+          let subOffset = 0;
+          let subMore = true;
+          while (subMore) {
+            const { data: subList } = supabase!.storage.from(DOCUMENTS_BUCKET).list(fullPath, { limit: LIST_PAGE_SIZE, offset: subOffset });
+            if (subList?.length) {
+              for (const sub of subList) {
+                if (!sub.name || !hasFileExtension(sub.name)) continue;
+                const subPath = `${fullPath}/${sub.name}`;
+                addFile(subPath, sub.name);
+              }
+              subMore = subList.length === LIST_PAGE_SIZE;
+              subOffset += subList.length;
+            } else {
+              subMore = false;
+            }
+          }
+        }
+      }
+      hasMore = items.length === LIST_PAGE_SIZE;
+      offset += items.length;
+    }
+  };
+
+  await collectFromFolder(folderPath);
+
+  // If direct folder empty, try common folder name variants (field app may use different naming)
+  if (files.length === 0 && folderPath) {
+    const folderVariants = [
+      `farmer_${folderPath}`,
+      `Farmer_${folderPath}`,
+      `farmer${folderPath}`,
+      `Farmer${folderPath}`,
+      `${folderPath}_docs`,
+      `docs_${folderPath}`,
+      `${folderPath}_documents`,
+      `Farmer-${folderPath}`,
+      `farmer-${folderPath}`,
+      `upload_${folderPath}`,
+      `${folderPath}_upload`,
+      `doc_${folderPath}`,
+      `${folderPath}_doc`,
+    ];
+    for (const variant of folderVariants) {
+      await collectFromFolder(variant);
+      if (files.length > 0) break;
+    }
+  }
+
+  // If still empty, try root list: find a folder that matches farmer code then list it (limit 10000 to avoid missing e.g. 30809)
+  if (files.length === 0 && folderPath) {
+    const { data: rootList, error: rootError } = await supabase.storage
+      .from(DOCUMENTS_BUCKET)
+      .list("", { limit: 10000 });
+    if (rootError && is429(rootError.message)) rateLimited = true;
+    if (!rootError && rootList?.length) {
+      const folderLower = folderPath.toLowerCase();
+      for (const f of rootList) {
+        if (!f.name) continue;
+        const name = f.name;
+        const nameLower = name.toLowerCase();
+        const exactOrPrefixSuffix =
+          name === folderPath ||
+          name === `farmer_${folderPath}` ||
+          nameLower === `farmer_${folderLower}` ||
+          name.startsWith(`${folderPath}_`) ||
+          name.endsWith(`_${folderPath}`) ||
+          nameLower.replace(/^farmer_/, "") === folderLower ||
+          nameLower.replace(/_docs$/, "") === folderLower;
+        // Simple string matching instead of complex regex to avoid character class errors
+        const containsCode = !hasFileExtension(name) && (
+          name.includes(folderPath) || 
+          name.includes(`farmer_${folderPath}`) ||
+          name.includes(`${folderPath}_`) ||
+          name.includes(`_${folderPath}`) ||
+          name.toLowerCase().includes(folderLower)
+        );
+        if (exactOrPrefixSuffix || containsCode) {
+          await collectFromFolder(name);
+          if (files.length > 0) break;
+        }
+      }
+    }
+  }
+
+  // Flat structure: files at root with prefix e.g. 22071_aadhaar.png (paginate so all documents display)
+  if (files.length === 0 && folderPath) {
+    const prefix = folderPath + "_";
+    let rootOffset = 0;
+    let rootMore = true;
+    while (rootMore) {
+      const { data: rootList, error: rootError } = await supabase.storage
+        .from(DOCUMENTS_BUCKET)
+        .list("", { limit: LIST_PAGE_SIZE, offset: rootOffset });
+      if (rootError) {
+        if (is429(rootError.message)) rateLimited = true;
+        break;
+      }
+      const items = rootList ?? [];
+      for (const f of items) {
+        if (!f.name) continue;
+        const name = f.name;
+        const isFile = hasFileExtension(name);
+        if (isFile && (name.startsWith(prefix) || name.startsWith(folderPath + ".") || name === folderPath)) {
+          addFile(name, name);
+        }
+      }
+      rootMore = items.length === LIST_PAGE_SIZE;
+      rootOffset += items.length;
+    }
+  }
+
+  // On 429 Too Many Requests: retry once after a longer delay to avoid rate limit
+  if (rateLimited && !retried) {
+    await new Promise((r) => setTimeout(r, 2800));
+    return listDocumentsByFarmerCode(farmerCode, true, usePublicUrls);
+  }
+  // On other storage error when no files: retry once after a short delay
+  if (files.length === 0 && firstListError) {
+    if (!retried) {
+      await new Promise((r) => setTimeout(r, 1500));
+      return listDocumentsByFarmerCode(farmerCode, true, usePublicUrls);
+    }
+    console.warn("[documents] list failed for folder:", folderPath, firstListError);
     return [];
   }
-  const result: { path: string; name: string; url: string }[] = [];
-  for (const f of list ?? []) {
-    if (!f.name) continue;
-    const path = `${folderPath}/${f.name}`;
-    const { data: urlData } = supabase.storage.from(DOCUMENTS_BUCKET).getPublicUrl(path);
-    result.push({ path, name: f.name, url: urlData.publicUrl });
+
+  // Deduplicate by path and build result (signed URLs for detail view, public URLs for fast export)
+  const seen = new Set<string>();
+  const uniqueFiles: { path: string; name: string }[] = [];
+  for (const { path, name } of files) {
+    if (seen.has(path)) continue;
+    seen.add(path);
+    uniqueFiles.push({ path, name });
   }
-  return result;
+  if (usePublicUrls) {
+    return uniqueFiles.map((f) => ({ path: f.path, name: f.name, url: getDocumentPublicUrl(f.path) }));
+  }
+  const urls = await Promise.all(
+    uniqueFiles.map((f) => getDocumentSignedUrl(f.path))
+  );
+  return uniqueFiles.map((f, i) => ({ path: f.path, name: f.name, url: urls[i] ?? getDocumentPublicUrl(f.path) }));
+}
+
+/** List top-level folder/item names in the documents bucket (each = one farmer's uploads). */
+export async function listDocumentsBucketFolderNames(): Promise<string[]> {
+  if (!supabase) return [];
+  try {
+    const { data: list, error } = await supabase.storage
+      .from(DOCUMENTS_BUCKET)
+      .list("", { limit: 10000 });
+    if (error) return [];
+    return (list ?? []).map((f) => String(f?.name ?? "")).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+/** Count top-level folders in the documents bucket (each folder = one farmer's uploads). */
+export async function countDocumentsBucketFolders(): Promise<number> {
+  const names = await listDocumentsBucketFolderNames();
+  return names.length;
+}
+
+const STORAGE_POLICY_SQL = `
+DROP POLICY IF EXISTS "Allow read documents bucket" ON storage.objects;
+CREATE POLICY "Allow read documents bucket"
+ON storage.objects FOR SELECT
+USING ( bucket_id = 'documents' );
+`;
+
+/** Apply storage policy so the app can list/read the "documents" bucket. Requires exec_sql RPC. */
+export async function applyStorageDocumentsPolicy(): Promise<{ ok: boolean; error?: string }> {
+  if (!supabase) return { ok: false, error: "Supabase not configured" };
+  const { error } = await supabase.rpc("exec_sql", { sql_query: STORAGE_POLICY_SQL });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+/** Create or update a farmer record in farmer_records when validator approves (so it shows in Validator Records). */
+export async function createFarmerRecordInSupabase(
+  coconutData: CoconutPlantationRow,
+  status: "submitted" | "approved" = "approved"
+): Promise<{ ok: boolean; error?: string }> {
+  if (!supabase) return { ok: false, error: "Supabase not configured" };
+
+  const farmerId = String(coconutData.farmer_code ?? coconutData.farmer_id ?? coconutData.id ?? "").trim();
+  const recordId = `fr-${coconutData.id ?? farmerId ?? crypto.randomUUID()}`;
+  const parts = (coconutData.farmer_name ?? "").trim().split(/\s+/);
+  const firstName = parts[0] ?? "";
+  const lastName = parts.slice(1).join(" ") ?? "";
+
+  const recordData = {
+    id: recordId,
+    farmer_id: farmerId || recordId,
+    first_name: firstName || "—",
+    last_name: lastName,
+    phone_number: coconutData.phone ?? coconutData.phone_number ?? "",
+    district: coconutData.district ?? "",
+    state: (coconutData as Record<string, unknown>).state ?? "",
+    village: coconutData.village ?? "",
+    status,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    date_of_plantation: coconutData.date_of_plantation,
+    agent_name: coconutData.agent_name,
+    total_area_hectares: coconutData.total_area_hectares ?? (coconutData as Record<string, unknown>).total_area_hectares,
+    area_under_coconut_hectares: coconutData.area_under_coconut_hectares ?? (coconutData as Record<string, unknown>).area_under_coconut_hectares,
+    created_by: (coconutData as Record<string, unknown>).created_by ?? "data_validator",
+  };
+
+  const { error } = await supabase
+    .from("farmer_records")
+    .upsert(recordData, { onConflict: "farmer_id", ignoreDuplicates: false });
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+/** Update coconut plantation status to submitted when approved */
+export async function updateCoconutPlantationStatus(
+  id: number | string,
+  status: string
+): Promise<{ ok: boolean; error?: string }> {
+  if (!supabase) return { ok: false, error: "Supabase not configured" };
+  
+  const { error } = await supabase
+    .from("coconut_plantations")
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq("id", id);
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
 }

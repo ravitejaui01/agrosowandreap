@@ -16,7 +16,8 @@
     "db:init": "cd api && npm run db:init",
     "sync:coconut": "cd api && npm run sync:coconut",
     "db:setup": "bash scripts/setup-db.sh",
-    "setup:supabase": "node scripts/setup-supabase-simple.js",
+    "setup:supabase": "node scripts/setup-supabase-tables.js",
+    "setup:storage-policy": "node scripts/setup-storage-policy.js",
     "build": "cd Agroforestry && npm ci && npm run build",
     "start": "cd Agroforestry && npm run preview"
   },
