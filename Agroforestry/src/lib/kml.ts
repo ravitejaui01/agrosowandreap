@@ -31,13 +31,18 @@ export function buildKmlForPlots(plots: CoconutPlotRow[], plotCodePrefix: string
       // Build detailed description
       const description = `
 <b>Plot Details</b><br/>
-<b>Farmer Code:</b> ${escapeKml(String(farmerData?.farmer_code || farmerData?.id || plotCodePrefix))}<br/>
 <b>Farmer Name:</b> ${escapeKml(String(farmerData?.farmer_name || 'N/A'))}<br/>
-<b>Plot Number:</b> ${plotNum}<br/>
-<b>Area:</b> ${plotArea} hectares<br/>
-<b>Land Ownership:</b> ${escapeKml(String(farmerData?.land_ownership || farmerData?.ownership || 'N/A'))}<br/>
-<b>Survey Number:</b> ${escapeKml(String(farmerData?.land_patta_survey_number || farmerData?.survey_number || 'N/A'))}<br/>
-<b>Submission Date:</b> ${farmerData?.created_at ? new Date(String(farmerData.created_at)).toLocaleDateString() : 'N/A'}<br/>
+<b>Farmer ID:</b> ${escapeKml(String(farmerData?.id || farmerData?.farmer_code || plotCodePrefix))}<br/>
+<b>Plot ID:</b> ${escapeKml(name)}<br/>
+<b>Area (ha):</b> ${plotArea} hectares<br/>
+<b>Land Ownership:</b> ${escapeKml(String(farmerData?.land_ownership || farmerData?.ownership || farmerData?.landOwnership || 'N/A'))}<br/>
+<b>Survey Number:</b> ${escapeKml(String(farmerData?.land_patta_survey_number || farmerData?.survey_number || farmerData?.patta_survey || farmerData?.survey_no || 'N/A'))}<br/>
+<b>Phone Number:</b> ${escapeKml(String(farmerData?.phone || farmerData?.phone_number || farmerData?.mobile || farmerData?.mobile_number || 'N/A'))}<br/>
+<b>Aadhar Number:</b> ${escapeKml(String(farmerData?.aadhaar || farmerData?.aadhaar_number || farmerData?.aadhar || 'N/A'))}<br/>
+<b>Created Date:</b> ${farmerData?.created_at ? new Date(String(farmerData.created_at)).toLocaleDateString() : 'N/A'}<br/>
+<b>Updated Date:</b> ${farmerData?.updated_at ? new Date(String(farmerData.updated_at)).toLocaleDateString() : 'N/A'}<br/>
+<b>Date of Plantation:</b> ${escapeKml(String(farmerData?.plantation_date || farmerData?.date_of_plantation || farmerData?.coconut_plantation_date || 'N/A'))}<br/>
+<b>Field Agent Name:</b> ${escapeKml(String(farmerData?.field_agent_name || farmerData?.agent_name || farmerData?.surveyor_name || 'N/A'))}<br/>
 <b>Status:</b> ${escapeKml(String(p.status || 'N/A'))}<br/>
       `.trim();
       
@@ -57,8 +62,10 @@ export function buildKmlForPlots(plots: CoconutPlotRow[], plotCodePrefix: string
     
   const docDescription = `
 <b>Farmer Information</b><br/>
-<b>Farmer Code:</b> ${escapeKml(String(farmerData?.farmer_code || farmerData?.id || plotCodePrefix))}<br/>
 <b>Farmer Name:</b> ${escapeKml(String(farmerData?.farmer_name || 'N/A'))}<br/>
+<b>Farmer ID:</b> ${escapeKml(String(farmerData?.id || farmerData?.farmer_code || plotCodePrefix))}<br/>
+<b>Phone Number:</b> ${escapeKml(String(farmerData?.phone || farmerData?.phone_number || farmerData?.mobile || farmerData?.mobile_number || 'N/A'))}<br/>
+<b>Field Agent Name:</b> ${escapeKml(String(farmerData?.field_agent_name || farmerData?.agent_name || farmerData?.surveyor_name || 'N/A'))}<br/>
 <b>Total Plots:</b> ${plots.length}<br/>
 <b>Generated:</b> ${new Date().toLocaleDateString()}<br/>
 <b>Source:</b> Agroforestry Management System
