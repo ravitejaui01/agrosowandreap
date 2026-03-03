@@ -17,6 +17,12 @@ export default function ValidatorDashboard() {
     return stored ? new Set(JSON.parse(stored)) : new Set();
   });
 
+  // Clear all records on fresh deployment
+  const clearAllRecords = () => {
+    localStorage.removeItem('removedValidatorRecords');
+    setRemovedRecordIds(new Set());
+  };
+
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ["validator-stats"],
     queryFn: getFarmerStats,
@@ -68,6 +74,10 @@ export default function ValidatorDashboard() {
             </p>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" onClick={clearAllRecords} className="gap-2">
+              <Activity className="h-4 w-4" />
+              Reset Values
+            </Button>
             <Button variant="outline" asChild>
               <Link to="/validator/records" className="gap-2">
                 <Eye className="h-4 w-4" />
