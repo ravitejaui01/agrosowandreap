@@ -145,9 +145,23 @@ function PlotGeoboundariesModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-7xl max-h-[95vh] flex flex-col p-4">
         <DialogHeader className="pb-3">
-          <DialogTitle className="flex items-center gap-2">
-            <MapIcon className="h-5 w-5" />
-            Plot Geoboundaries Details
+          <DialogTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <MapIcon className="h-5 w-5" />
+              Plot Geoboundaries Details
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => {
+                const kml = buildKmlForPlots(polygons, String(farmerData?.id ?? farmerData?.farmer_code ?? "farmer"));
+                downloadKml(kml, `geoboundaries-${farmerData?.id ?? farmerData?.farmer_code ?? "farmer"}-all-plots.kml`);
+              }}
+            >
+              <Download className="h-4 w-4" />
+              Download All KML
+            </Button>
           </DialogTitle>
         </DialogHeader>
         <div className="flex-1 rounded-md overflow-hidden border">
