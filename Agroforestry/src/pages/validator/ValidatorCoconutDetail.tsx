@@ -481,14 +481,14 @@ export default function ValidatorCoconutDetail() {
                         <dt className="text-muted-foreground">Farmer Name</dt>
                         <dd>{row.farmer_name ?? "—"}</dd>
                         <dt className="text-muted-foreground">Aadhaar</dt>
-                        <dd>{row.aadhaar ?? "—"}</dd>
+                        <dd>{String(row.aadhaar ?? row.aadhaar_number ?? row.aadhar ?? "") || "—"}</dd>
                         <dt className="text-muted-foreground">Submission Date</dt>
                         <dd>{row.created_at ? new Date(String(row.created_at)).toLocaleDateString() : "—"}</dd>
                       </dl>
                       <h4 className="font-medium text-foreground mt-4">Contact Details</h4>
                       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
                         <dt className="text-muted-foreground">Mobile No</dt>
-                        <dd>{row.phone ?? "—"}</dd>
+                        <dd>{String(row.phone ?? row.phone_number ?? row.mobile ?? row.mobile_number ?? "") || "—"}</dd>
                       </dl>
                       <h4 className="font-medium text-foreground mt-4">Address Details</h4>
                       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
@@ -677,6 +677,146 @@ export default function ValidatorCoconutDetail() {
                               );
                             })
                           )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* Section 4: Land Details */}
+              <AccordionItem value="section-4" className="rounded-xl border border-border bg-card px-4 shadow-sm">
+                <AccordionTrigger className="hover:no-underline py-4">
+                  <span className="flex items-center gap-2">
+                    <span className="font-semibold">Section 4</span>
+                    <span className="text-muted-foreground">Land Details</span>
+                    <span className="ml-2 text-xs font-medium text-muted-foreground bg-muted px-2.5 py-0.5 rounded-md">
+                      Status: Pending
+                    </span>
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="pt-2 space-y-4">
+                    <div className="overflow-x-auto">
+                      <table className="w-full border rounded-lg overflow-hidden">
+                        <thead>
+                          <tr className="bg-primary text-primary-foreground">
+                            <th className="text-left p-2">Land Details</th>
+                            <th className="text-left p-2">Value</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="border-b">
+                            <td className="p-2 text-muted-foreground">Total Area Possessed</td>
+                            <td className="p-2">
+                              {formatHa(get(["total_area_hectares", "totalAreaHectares", "total_area_hectare", "total_area", "totalArea", "area_hectares", "land.total_area_hectares", "land_details.total_area_hectares"]) ?? getByPattern(/^total_area|^totalArea/i))}
+                            </td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="p-2 text-muted-foreground">Area Under Coconut</td>
+                            <td className="p-2">
+                              {formatHa(get(["area_under_coconut_hectares", "areaUnderCoconutHectares", "area_under_coconut", "areaUnderCoconut", "coconut_area", "land.area_under_coconut_hectares"]) ?? getByPattern(/area_under_coconut|areaUnderCoconut|under_coconut/i))}
+                            </td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="p-2 text-muted-foreground">Land Area</td>
+                            <td className="p-2">{formatHa(get(["land_area_hectares", "land_area", "landAreaHectares", "land_size", "landSize", "land.land_size"]) ?? 0)}</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="p-2 text-muted-foreground">Land Ownership</td>
+                            <td className="p-2">{formatStr(get(["land_ownership", "landOwnership", "ownership", "land.land_ownership"]))}</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="p-2 text-muted-foreground">Land Patta/Survey</td>
+                            <td className="p-2">
+                              {formatStr(get(["land_patta_survey_number", "land_patta_survey", "landPattaSurveyNumber", "landPattaSurvey", "patta_survey", "patta_number", "survey_number", "survey_no", "land_patta", "patta", "survey", "land.survey_number", "land.patta"]) ?? getByPattern(/patta|survey|patta_survey|survey_no/i))}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full border rounded-lg overflow-hidden">
+                        <thead>
+                          <tr className="bg-primary text-primary-foreground">
+                            <th className="text-left p-2">Plot Code</th>
+                            <th className="text-left p-2">Documents Type</th>
+                            <th className="text-left p-2">Legal Documents</th>
+                            <th className="text-left p-2">Status</th>
+                            <th className="text-right p-2">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="border-b">
+                            <td className="p-2 font-mono text-xs">{row.id}</td>
+                            <td className="p-2">Legal Document (RTC)</td>
+                            <td className="p-2">—</td>
+                            <td className="p-2">Pending</td>
+                            <td className="p-2 text-right">
+                              <Button size="sm" className="bg-green-600 hover:bg-green-700 mr-1" onClick={handleApprove} disabled={!!actionLoading}>
+                                Approve
+                              </Button>
+                              <Button size="sm" variant="destructive" onClick={() => setRecollectDialogOpen(true)} disabled={!!actionLoading}>
+                                Recollect
+                              </Button>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* Section 4: Land Details */}
+              <AccordionItem value="section-4" className="rounded-xl border border-border bg-card px-4 shadow-sm">
+                <AccordionTrigger className="hover:no-underline py-4">
+                  <span className="flex items-center gap-2">
+                    <span className="font-semibold">Section 4</span>
+                    <span className="text-muted-foreground">Land Details</span>
+                    <span className="ml-2 text-xs font-medium text-muted-foreground bg-muted px-2.5 py-0.5 rounded-md">
+                      Status: Pending
+                    </span>
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="pt-2 space-y-4">
+                    <div className="overflow-x-auto">
+                      <table className="w-full border rounded-lg overflow-hidden">
+                        <thead>
+                          <tr className="bg-primary text-primary-foreground">
+                            <th className="text-left p-2">Land Details</th>
+                            <th className="text-left p-2">Value</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="border-b">
+                            <td className="p-2 text-muted-foreground">Total Area Possessed</td>
+                            <td className="p-2">
+                              {formatHa(get(["total_area_hectares", "totalAreaHectares", "total_area_hectare", "total_area", "totalArea", "area_hectares", "land.total_area_hectares", "land_details.total_area_hectares"]) ?? getByPattern(/^total_area|^totalArea/i))}
+                            </td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="p-2 text-muted-foreground">Area Under Coconut</td>
+                            <td className="p-2">
+                              {formatHa(get(["area_under_coconut_hectares", "areaUnderCoconutHectares", "area_under_coconut", "areaUnderCoconut", "coconut_area", "land.area_under_coconut_hectares"]) ?? getByPattern(/area_under_coconut|areaUnderCoconut|under_coconut/i))}
+                            </td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="p-2 text-muted-foreground">Land Area</td>
+                            <td className="p-2">{formatHa(get(["land_area_hectares", "land_area", "landAreaHectares", "land_size", "landSize", "land.land_size"]) ?? 0)}</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="p-2 text-muted-foreground">Land Ownership</td>
+                            <td className="p-2">{formatStr(get(["land_ownership", "landOwnership", "ownership", "land.land_ownership"]))}</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="p-2 text-muted-foreground">Land Patta/Survey</td>
+                            <td className="p-2">
+                              {formatStr(get(["land_patta_survey_number", "land_patta_survey", "landPattaSurveyNumber", "landPattaSurvey", "patta_survey", "patta_number", "survey_number", "survey_no", "land_patta", "patta", "survey", "land.survey_number", "land.patta"]) ?? getByPattern(/patta|survey|patta_survey|survey_no/i))}
+                            </td>
+                          </tr>
                         </tbody>
                       </table>
                     </div>
