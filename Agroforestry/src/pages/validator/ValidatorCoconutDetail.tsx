@@ -123,6 +123,7 @@ function PlotGeoboundariesModal({
 
   const formatFarmerDetail = (key: string, value: unknown) => {
     if (value == null || value === "" || String(value).toLowerCase() === "undefined") return null;
+    if (String(value) === "0" || String(value) === "00") return null;
     return (
       <div key={key} className="flex justify-between gap-4">
         <span className="font-medium text-gray-700">{key}:</span>
