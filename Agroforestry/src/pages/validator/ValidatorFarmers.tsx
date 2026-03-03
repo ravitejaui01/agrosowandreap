@@ -568,9 +568,6 @@ export default function ValidatorFarmers() {
       <div className="space-y-6">
         <div className="sticky top-0 z-20 -mx-4 px-4 pb-6 pt-1 border-b border-border bg-background lg:-mx-8 lg:px-8">
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Farmer Records</h1>
-          <p className="mt-1 text-muted-foreground">
-            View and search all farmer submissions and coconut plantations. Status = <strong>Submitted</strong> when documents (Aadhaar, Agreement, Bank, RTC) are saved in the bucket for that farmer; otherwise <strong>Incomplete</strong>.
-          </p>
         </div>
 
         {/* Record Counts */}
@@ -602,7 +599,7 @@ export default function ValidatorFarmers() {
           <div className="rounded-xl border border-border bg-card p-6 shadow-sm hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground mb-1">Uploaded in bucket</p>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Uploaded Documents</p>
                 <p className="text-3xl font-bold text-emerald-600">{bucketFolderCount ?? 0}</p>
                 <p className="text-xs text-muted-foreground mt-1">Folders (Aadhaar, Agreement, Bank, RTC)</p>
               </div>
