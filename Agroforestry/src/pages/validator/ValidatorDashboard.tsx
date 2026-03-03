@@ -1,8 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { StatsCard } from "@/components/dashboard/StatsCard";
-import { getFarmerStats, getFarmerRecords } from "@/lib/api";
-import { clearAllFarmerRecords } from "@/lib/supabase";
+import { getFarmerRecordsFromSupabase, clearAllFarmerRecords } from "@/lib/supabase";
 import { FileText, Clock, CheckCircle2, AlertTriangle, Users, TrendingUp, Activity, BarChart3 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,15 +37,9 @@ export default function ValidatorDashboard() {
     }
   };
 
-  const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ["validator-stats"],
-    queryFn: getFarmerStats,
-    refetchInterval: 30000,
-  });
-
   const { data: records = [], isLoading: recordsLoading } = useQuery({
     queryKey: ["validator-farmer-records"],
-    queryFn: () => getFarmerRecords(),
+    queryFn: () => getFarmerRecordsFromSupabase(),
     refetchInterval: 30000,
   });
 

@@ -1,7 +1,7 @@
-// Dev: "" = proxy forwards /api (set VITE_PROXY_TARGET=http://localhost:3000 to use local API). Production: full Railway URL
+// Dev: "" = proxy forwards /api (set VITE_PROXY_TARGET=http://localhost:3000 to use local API). Production: Use Supabase only
 const API_BASE = (
   import.meta.env.VITE_API_URL ??
-  (import.meta.env.DEV ? "" : "https://api-production-de18.up.railway.app")
+  (import.meta.env.DEV ? "" : "")
 ).replace(/\/$/, "");
 
 async function checkOk(r: Response) {
