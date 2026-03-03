@@ -200,12 +200,12 @@ function PlotGeoboundariesModal({
                 }}
               >
                 <Tooltip
-                  direction="top"
-                  offset={[0, -20]}
+                  direction="right"
+                  offset={[10, 0]}
                   opacity={1}
                   permanent={false}
                 >
-                  <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-200 min-w-[280px]">
+                  <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-200 min-w-[280px] max-w-[320px] max-h-[500px] overflow-y-auto">
                     <h4 className="font-bold text-gray-900 mb-2 border-b pb-1">
                       Farmer Details - Plot {i + 1}
                     </h4>
