@@ -22,12 +22,33 @@ export function buildKmlForPlots(plots: CoconutPlotRow[], plotCodePrefix: string
           ? ring
           : [...ring, ring[0]];
       const coords = closed.map(([lat, lng]) => `${lng},${lat},0`).join(" ");
-      return `  <Placemark>\n    <name>${escapeKml(name)}</name>\n    <Polygon><outerBoundaryIs><LinearRing><coordinates>${coords}</coordinates></LinearRing></outerBoundaryIs></Polygon>\n  </Placemark>`;
+      return `    <Placemark>
+      <name>${escapeKml(name)}</name>
+      <styleUrl>#plotStyle</styleUrl>
+      <Polygon>
+        <outerBoundaryIs>
+          <LinearRing>
+            <coordinates>${coords}</coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </Polygon>
+    </Placemark>`;
     });
   return `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
     <name>${escapeKml(plotCodePrefix)} Geoboundaries</name>
+    <description>Agricultural plot boundaries for ${escapeKml(plotCodePrefix)}</description>
+    <Style id="plotStyle">
+      <LineStyle>
+        <color>ff0000ff</color>
+        <width>2</width>
+      </LineStyle>
+      <PolyStyle>
+        <color>7f0000ff</color>
+        <fill>1</fill>
+      </PolyStyle>
+    </Style>
 ${placemarks.join("\n")}
   </Document>
 </kml>`;
