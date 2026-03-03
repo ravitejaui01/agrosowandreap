@@ -15,7 +15,8 @@ export function buildKmlForPlots(plots: CoconutPlotRow[], plotCodePrefix: string
   const placemarks = plots
     .filter((p) => Array.isArray(p.latlngs) && p.latlngs.length >= 3)
     .map((p, i) => {
-      const name = `${plotCodePrefix}-P${i + 1}`;
+      const plotNum = p.plotNumber ?? (i + 1);
+      const name = `${plotCodePrefix}-P${plotNum}`;
       const ring = p.latlngs!;
       const closed =
         ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1]
@@ -24,15 +25,16 @@ export function buildKmlForPlots(plots: CoconutPlotRow[], plotCodePrefix: string
       const coords = closed.map(([lat, lng]) => `${lng},${lat},0`).join(" ");
       
       // Calculate approximate area (simple polygon area calculation)
-      const area = calculatePlotArea(ring);
+      const calculatedArea = calculatePlotArea(ring);
+      const plotArea = p.areaAcres ? (p.areaAcres * 0.404686).toFixed(2) : calculatedArea.toFixed(2); // Convert acres to hectares
       
       // Build detailed description
       const description = `
 <b>Plot Details</b><br/>
 <b>Farmer Code:</b> ${escapeKml(String(farmerData?.farmer_code || farmerData?.id || plotCodePrefix))}<br/>
 <b>Farmer Name:</b> ${escapeKml(String(farmerData?.farmer_name || 'N/A'))}<br/>
-<b>Plot Number:</b> ${i + 1}<br/>
-<b>Area:</b> ${area.toFixed(2)} hectares<br/>
+<b>Plot Number:</b> ${plotNum}<br/>
+<b>Area:</b> ${plotArea} hectares<br/>
 <b>Land Ownership:</b> ${escapeKml(String(farmerData?.land_ownership || farmerData?.ownership || 'N/A'))}<br/>
 <b>Survey Number:</b> ${escapeKml(String(farmerData?.land_patta_survey_number || farmerData?.survey_number || 'N/A'))}<br/>
 <b>Submission Date:</b> ${farmerData?.created_at ? new Date(String(farmerData.created_at)).toLocaleDateString() : 'N/A'}<br/>
