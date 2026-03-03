@@ -827,7 +827,7 @@ export default function ValidatorCoconutDetail() {
                                       variant="outline"
                                       className="gap-1"
                                       onClick={() => {
-                                        const kml = buildKmlForPlots([p], String(row.id ?? "plot"));
+                                        const kml = buildKmlForPlots([p], String(row.id ?? "plot"), row);
                                         downloadKml(kml, `geoboundaries-${row.id}-P${i + 1}.kml`);
                                       }}
                                     >
