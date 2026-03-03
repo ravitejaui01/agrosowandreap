@@ -313,8 +313,20 @@ router.patch("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   try {
     // For UI removal only, just return success without checking database
-    // This allows the frontend to remove records from display without database changes
+    // This allows frontend to remove records from display without database changes
     res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete("/", async (req, res) => {
+  try {
+    await query("DELETE FROM farmer_records");
+    await query("DELETE FROM documents");
+    await query("DELETE FROM validation_history");
+    res.json({ success: true, message: "All farmer records cleared" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
