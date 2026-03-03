@@ -155,7 +155,7 @@ function PlotGeoboundariesModal({
               size="sm"
               className="gap-1.5"
               onClick={() => {
-                const kml = buildKmlForPlots(polygons, String(farmerData?.id ?? farmerData?.farmer_code ?? "farmer"));
+                const kml = buildKmlForPlots(polygons, String(farmerData?.id ?? farmerData?.farmer_code ?? "farmer"), farmerData);
                 downloadKml(kml, `geoboundaries-${farmerData?.id ?? farmerData?.farmer_code ?? "farmer"}-all-plots.kml`);
               }}
             >

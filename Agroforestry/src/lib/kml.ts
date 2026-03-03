@@ -11,7 +11,7 @@ function escapeKml(s: string): string {
 }
 
 /** Build KML document for one or more plots. latlngs are [lat, lng]; KML coordinates are lon,lat,altitude. */
-export function buildKmlForPlots(plots: CoconutPlotRow[], plotCodePrefix: string): string {
+export function buildKmlForPlots(plots: CoconutPlotRow[], plotCodePrefix: string, farmerData?: Record<string, any>): string {
   const placemarks = plots
     .filter((p) => Array.isArray(p.latlngs) && p.latlngs.length >= 3)
     .map((p, i) => {
@@ -22,8 +22,26 @@ export function buildKmlForPlots(plots: CoconutPlotRow[], plotCodePrefix: string
           ? ring
           : [...ring, ring[0]];
       const coords = closed.map(([lat, lng]) => `${lng},${lat},0`).join(" ");
+      
+      // Calculate approximate area (simple polygon area calculation)
+      const area = calculatePlotArea(ring);
+      
+      // Build detailed description
+      const description = `
+<b>Plot Details</b><br/>
+<b>Farmer Code:</b> ${escapeKml(String(farmerData?.farmer_code || farmerData?.id || plotCodePrefix))}<br/>
+<b>Farmer Name:</b> ${escapeKml(String(farmerData?.farmer_name || 'N/A'))}<br/>
+<b>Plot Number:</b> ${i + 1}<br/>
+<b>Area:</b> ${area.toFixed(2)} hectares<br/>
+<b>Land Ownership:</b> ${escapeKml(String(farmerData?.land_ownership || farmerData?.ownership || 'N/A'))}<br/>
+<b>Survey Number:</b> ${escapeKml(String(farmerData?.land_patta_survey_number || farmerData?.survey_number || 'N/A'))}<br/>
+<b>Submission Date:</b> ${farmerData?.created_at ? new Date(String(farmerData.created_at)).toLocaleDateString() : 'N/A'}<br/>
+<b>Status:</b> ${escapeKml(String(p.status || 'N/A'))}<br/>
+      `.trim();
+      
       return `    <Placemark>
       <name>${escapeKml(name)}</name>
+      <description><![CDATA[${description}]]></description>
       <styleUrl>#plotStyle</styleUrl>
       <Polygon>
         <outerBoundaryIs>
@@ -34,11 +52,21 @@ export function buildKmlForPlots(plots: CoconutPlotRow[], plotCodePrefix: string
       </Polygon>
     </Placemark>`;
     });
+    
+  const docDescription = `
+<b>Farmer Information</b><br/>
+<b>Farmer Code:</b> ${escapeKml(String(farmerData?.farmer_code || farmerData?.id || plotCodePrefix))}<br/>
+<b>Farmer Name:</b> ${escapeKml(String(farmerData?.farmer_name || 'N/A'))}<br/>
+<b>Total Plots:</b> ${plots.length}<br/>
+<b>Generated:</b> ${new Date().toLocaleDateString()}<br/>
+<b>Source:</b> Agroforestry Management System
+  `.trim();
+  
   return `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
     <name>${escapeKml(plotCodePrefix)} Geoboundaries</name>
-    <description>Agricultural plot boundaries for ${escapeKml(plotCodePrefix)}</description>
+    <description><![CDATA[${docDescription}]]></description>
     <Style id="plotStyle">
       <LineStyle>
         <color>ff0000ff</color>
@@ -52,6 +80,22 @@ export function buildKmlForPlots(plots: CoconutPlotRow[], plotCodePrefix: string
 ${placemarks.join("\n")}
   </Document>
 </kml>`;
+}
+
+/** Calculate approximate area of a polygon in hectares */
+function calculatePlotArea(coords: [number, number][]): number {
+  if (coords.length < 3) return 0;
+  
+  // Simple shoelace formula for area calculation
+  let area = 0;
+  for (let i = 0; i < coords.length - 1; i++) {
+    area += coords[i][0] * coords[i + 1][1] - coords[i + 1][0] * coords[i][1];
+  }
+  area += coords[coords.length - 1][0] * coords[0][1] - coords[0][0] * coords[coords.length - 1][1];
+  
+  // Convert to approximate hectares (very rough approximation)
+  const areaInSquareMeters = Math.abs(area) * 111320 * 111320 * Math.cos(coords[0][0] * Math.PI / 180);
+  return areaInSquareMeters / 10000;
 }
 
 export function downloadKml(content: string, filename: string) {
