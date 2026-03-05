@@ -7,6 +7,7 @@ import type { CoconutPlantationRow } from "@/lib/supabase";
 import { buildKmlForPlots, downloadKml } from "@/lib/kml";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Search, ChevronLeft, ChevronRight, Download, Eye, CheckCircle } from "lucide-react";
 
@@ -420,8 +421,11 @@ function getAreaHa(c: CoconutPlantationRow | Record<string, unknown>): number | 
   return null;
 }
 
+type StatusTab = "all" | "submitted" | "incomplete";
+
 export default function ValidatorFarmers() {
   const [coconutSearch, setCoconutSearch] = useState("");
+  const [statusTab, setStatusTab] = useState<StatusTab>("all");
   const [coconutPage, setCoconutPage] = useState(0);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -502,35 +506,47 @@ export default function ValidatorFarmers() {
     return filtered;
   }, [coconutPlantations, coconutSearch]);
 
-  const coconutTotal = filteredCoconut.length;
-  const coconutPageCount = Math.max(1, Math.ceil(coconutTotal / COCONUT_PAGE_SIZE));
-  const coconutFrom = coconutTotal === 0 ? 0 : coconutPage * COCONUT_PAGE_SIZE + 1;
-  const coconutTo = Math.min((coconutPage + 1) * COCONUT_PAGE_SIZE, coconutTotal);
-  const coconutPageRows = useMemo(
-    () => filteredCoconut.slice(coconutPage * COCONUT_PAGE_SIZE, (coconutPage + 1) * COCONUT_PAGE_SIZE),
-    [filteredCoconut, coconutPage]
-  );
-
-  // Status from bucket: folder name = farmer_id (how Field Agent saves). If folder exists → Submitted, else Incomplete
-  const hasUploadedByCode = useMemo(() => {
+  // Status for all filtered rows: folder in bucket → Submitted, else Incomplete
+  const hasUploadedByCodeAll = useMemo(() => {
     const m: Record<string, boolean> = {};
-    coconutPageRows.forEach((c) => {
+    const folders = bucketFolderNames as string[];
+    filteredCoconut.forEach((c) => {
       const code = String(c.farmer_id ?? c.farmer_code ?? c.id ?? "").trim();
-      m[code] = isFarmerInBucketList(code, bucketFolderNames as string[]);
+      if (code) m[code] = isFarmerInBucketList(code, folders);
     });
     return m;
-  }, [coconutPageRows, bucketFolderNames]);
+  }, [filteredCoconut, bucketFolderNames]);
+
+  // Filter by tab: Submitted = has folder in bucket, Incomplete = no folder
+  const tabFilteredCoconut = useMemo(() => {
+    if (statusTab === "all") return filteredCoconut;
+    return filteredCoconut.filter((c) => {
+      const code = String(c.farmer_id ?? c.farmer_code ?? c.id ?? "").trim();
+      const submitted = !!hasUploadedByCodeAll[code];
+      if (statusTab === "submitted") return submitted;
+      return !submitted;
+    });
+  }, [filteredCoconut, statusTab, hasUploadedByCodeAll]);
 
   const recordCounts = useMemo(() => {
     let submitted = 0;
     let incomplete = 0;
-    coconutPageRows.forEach((c) => {
+    filteredCoconut.forEach((c) => {
       const code = String(c.farmer_id ?? c.farmer_code ?? c.id ?? "").trim();
-      if (hasUploadedByCode[code]) submitted++;
+      if (hasUploadedByCodeAll[code]) submitted++;
       else incomplete++;
     });
-    return { submitted, incomplete };
-  }, [coconutPageRows, hasUploadedByCode]);
+    return { submitted, incomplete, total: filteredCoconut.length };
+  }, [filteredCoconut, hasUploadedByCodeAll]);
+
+  const coconutTotal = tabFilteredCoconut.length;
+  const coconutPageCount = Math.max(1, Math.ceil(coconutTotal / COCONUT_PAGE_SIZE));
+  const coconutFrom = coconutTotal === 0 ? 0 : coconutPage * COCONUT_PAGE_SIZE + 1;
+  const coconutTo = Math.min((coconutPage + 1) * COCONUT_PAGE_SIZE, coconutTotal);
+  const coconutPageRows = useMemo(
+    () => tabFilteredCoconut.slice(coconutPage * COCONUT_PAGE_SIZE, (coconutPage + 1) * COCONUT_PAGE_SIZE),
+    [tabFilteredCoconut, coconutPage]
+  );
 
   useEffect(() => {
     exportBlobUrlRef.current = exportReady?.url ?? null;
@@ -553,7 +569,7 @@ export default function ValidatorFarmers() {
 
   useEffect(() => {
     setCoconutPage(0);
-  }, [coconutSearch]);
+  }, [coconutSearch, statusTab]);
 
   useEffect(() => {
     if (coconutPage >= coconutPageCount && coconutPageCount > 0) setCoconutPage(0);
@@ -577,7 +593,7 @@ export default function ValidatorFarmers() {
               <div>
                 <p className="text-sm font-medium text-muted-foreground mb-1">Incomplete</p>
                 <p className="text-3xl font-bold text-orange-600">{recordCounts.incomplete ?? 0}</p>
-                <p className="text-xs text-muted-foreground mt-1">Missing documents (this page)</p>
+                <p className="text-xs text-muted-foreground mt-1">Missing documents</p>
               </div>
               <div className="h-12 w-12 rounded-full bg-orange-100 flex items-center justify-center">
                 <div className="h-3 w-3 rounded-full bg-orange-600"></div>
@@ -589,7 +605,7 @@ export default function ValidatorFarmers() {
               <div>
                 <p className="text-sm font-medium text-muted-foreground mb-1">Submitted</p>
                 <p className="text-3xl font-bold text-blue-600">{recordCounts.submitted ?? 0}</p>
-                <p className="text-xs text-muted-foreground mt-1">Has folder in bucket (this page)</p>
+                <p className="text-xs text-muted-foreground mt-1">Has folder in bucket</p>
               </div>
               <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
                 <div className="h-3 w-3 rounded-full bg-blue-600"></div>
@@ -612,8 +628,8 @@ export default function ValidatorFarmers() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground mb-1">Total Records</p>
-                <p className="text-3xl font-bold text-gray-600">{filteredCoconut.length}</p>
-                <p className="text-xs text-muted-foreground mt-1">All farmers</p>
+                <p className="text-3xl font-bold text-gray-600">{recordCounts.total ?? 0}</p>
+                <p className="text-xs text-muted-foreground mt-1">All farmers (search result)</p>
               </div>
               <div className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center">
                 <div className="h-3 w-3 rounded-full bg-gray-600"></div>
@@ -656,156 +672,40 @@ export default function ValidatorFarmers() {
               size="default"
               className="gap-2 h-11 px-6 rounded-lg shadow-sm whitespace-nowrap"
               onClick={async () => {
-                console.log("[DEBUG] Download button clicked!");
-                console.log("[DEBUG] coconutLoading:", coconutLoading);
-                console.log("[DEBUG] exporting:", exporting);
-                console.log("[DEBUG] filteredCoconut.length:", filteredCoconut.length);
-                console.log("[DEBUG] coconutPlantations.length:", coconutPlantations.length);
-                
-                if (exporting || filteredCoconut.length === 0) {
-                  console.log("[DEBUG] Download blocked - exporting:", exporting, "no data:", filteredCoconut.length === 0);
-                  return;
-                }
-                console.log("[DEBUG] Starting export for", filteredCoconut.length, "farmers");
+                const dataToExport = tabFilteredCoconut;
+                if (exporting || dataToExport.length === 0) return;
                 setExportError(null);
                 setExportReady((prev) => {
                   if (prev?.url) {
-                    try {
-                      URL.revokeObjectURL(prev.url);
-                      console.log("[DEBUG] Cleaned previous blob URL:", prev.url);
-                    } catch (error) {
-                      console.warn("[DEBUG] Failed to clean previous blob URL:", error);
-                    }
+                    try { URL.revokeObjectURL(prev.url); } catch { /* ignore */ }
                   }
                   return null;
                 });
                 setExporting(true);
-                
                 try {
-                  // Validate data before processing
-                  if (!filteredCoconut || filteredCoconut.length === 0) {
+                  if (!dataToExport || dataToExport.length === 0) {
                     throw new Error("No data available for export");
                   }
-                  
-                  const allCodes = [...new Set(
-                    filteredCoconut.map((c) => String(c.farmer_id ?? c.farmer_code ?? c.id ?? "").trim()).filter(Boolean)
-                  )];
-                  console.log("[DEBUG] Farmer codes to process:", allCodes);
-                  
-                  if (allCodes.length === 0) {
-                    throw new Error("No valid farmer codes found");
-                  }
-                  
+                  // Build doc links from DB fields only (no storage API calls) so export is fast
                   const docLinksByCode: Record<string, DocLinks> = {};
-                  const BATCH = 8; // Increased batch size
-                  const delayMs = 200; // Reduced delay for faster processing
-                  const delay = () => new Promise((r) => setTimeout(r, delayMs));
-                  
-                  // For large datasets, optimize document fetching instead of skipping
-                  const skipDocumentFetching = allCodes.length > 5000;
-                  if (skipDocumentFetching) {
-                    console.log("[DEBUG] Very large dataset detected, using basic document links only");
-                    console.log("[DEBUG] Document links will be included from database fields");
-                  }
-                  
-                  // Show warning for very large datasets
-                  if (allCodes.length > 10000) {
-                    const proceed = confirm(`This will export ${allCodes.length.toLocaleString()} farmer records. For very large datasets, only basic document links are included for performance. Continue?`);
-                    if (!proceed) {
-                      setExporting(false);
-                      return;
-                    }
-                  }
-                  
-                  // Process documents with better error handling
-                  for (let i = 0; i < allCodes.length; i += BATCH) {
-                    const batch = allCodes.slice(i, i + BATCH);
-                    console.log(`[DEBUG] Processing batch ${Math.floor(i/BATCH) + 1} of ${Math.ceil(allCodes.length/BATCH)}:`, batch);
-                    
-                    if (!skipDocumentFetching) {
-                      const results = await Promise.allSettled(batch.map(async (code) => {
-                        if (!code) return [];
-                        try {
-                          console.log("[DEBUG] Fetching documents for:", code);
-                          const docs = await listDocumentsByFarmerCode(code, false, true);
-                          console.log("[DEBUG] Found", docs.length, "documents for", code);
-                          return docs;
-                        } catch (error) {
-                          console.error("[DEBUG] Error fetching documents for", code, ":", error);
-                          
-                          // Try to apply storage policy if permission denied
-                          if (error.message && (error.message.includes('policy') || error.message.includes('permission') || error.message.includes('403'))) {
-                            try {
-                              console.log("[DEBUG] Attempting to apply storage policy...");
-                              // Apply storage policy directly
-                              const policyResult = await applyStorageDocumentsPolicy();
-                              if (policyResult.ok) {
-                                console.log("[DEBUG] Storage policy applied successfully, retrying fetch...");
-                                // Retry the document fetch after applying policy
-                                const retryDocs = await listDocumentsByFarmerCode(code, false, true);
-                                console.log("[DEBUG] Retry found", retryDocs.length, "documents for", code);
-                                console.log("[DEBUG] Retry URLs:", retryDocs.map(d => d.url));
-                                return retryDocs;
-                              } else {
-                                console.error("[DEBUG] Storage policy application failed:", policyResult.error);
-                              }
-                            } catch (policyError) {
-                              console.error("[DEBUG] Failed to apply storage policy:", policyError);
-                            }
-                          }
-                          
-                          return []; // Return empty array instead of failing entire batch
-                        }
-                      }));
-                      
-                      batch.forEach((code, j) => {
-                        const result = results[j];
-                        if (result.status === 'fulfilled') {
-                          docLinksByCode[code] = getDocLinksFromList(result.value);
-                        } else {
-                          console.warn("[DEBUG] Batch failed for code:", code, result.reason);
-                          docLinksByCode[code] = {}; // Empty object as fallback
-                        }
-                      });
-                    } else {
-                      // For large datasets, create basic document links from database fields
-                      batch.forEach((code) => {
-                        const farmer = filteredCoconut.find(c => 
-                          String(c.farmer_id ?? c.farmer_code ?? c.id ?? "").trim() === code
-                        );
-                        if (farmer) {
-                          // Try to get document URLs from various possible field names
-                          docLinksByCode[code] = {
-                            aadhaarUrl: getCsvVal(farmer, "aadhaar_url", "aadhaar_document", "aadhaar_document_url", "aadhaarFile", "aadhaar_path"),
-                            agreementUrl: getCsvVal(farmer, "agreement_url", "agreement_document", "plantation_agreement", "farmer_agreement", "agreementFile", "agreement_path"),
-                            bankUrl: getCsvVal(farmer, "bank_url", "bank_document", "bank_statement", "bank_passbook", "bankFile", "bank_path"),
-                            priorConsiderationUrl: getCsvVal(farmer, "prior_consideration_url", "prior_consideration_document", "priorConsiderationFile", "priorConsiderationPath"),
-                            rtcUrl: getCsvVal(farmer, "rtc_url", "rtc_document", "land_document", "survey_document", "patta_document", "land_patta_or_survey_number", "rtcFile", "rtc_path", "landRecord")
-                          };
-                          console.log("[DEBUG] Document links for", code, ":", docLinksByCode[code]);
-                        }
-                      });
-                    }
-                    
-                    // Add progress indicator for large datasets
-                    if (allCodes.length > 20) {
-                      const progress = Math.round(((i + BATCH) / allCodes.length) * 100);
-                      console.log(`[DEBUG] Progress: ${progress}%`);
-                    }
-                    
-                    if (i + BATCH < allCodes.length && !skipDocumentFetching) await delay();
-                  }
-                  
+                  dataToExport.forEach((c) => {
+                    const code = String(c.farmer_id ?? c.farmer_code ?? c.id ?? "").trim();
+                    if (!code) return;
+                    docLinksByCode[code] = {
+                      aadhaarUrl: getCsvVal(c, "aadhaar_url", "aadhaar_document", "aadhaar_document_url", "aadhaarFile", "aadhaar_path"),
+                      agreementUrl: getCsvVal(c, "agreement_url", "agreement_document", "plantation_agreement", "farmer_agreement", "agreementFile", "agreement_path"),
+                      bankUrl: getCsvVal(c, "bank_url", "bank_document", "bank_statement", "bank_passbook", "bankFile", "bank_path"),
+                      priorConsiderationUrl: getCsvVal(c, "prior_consideration_url", "prior_consideration_document", "priorConsiderationFile", "priorConsiderationPath"),
+                      rtcUrl: getCsvVal(c, "rtc_url", "rtc_document", "land_document", "survey_document", "patta_document", "land_patta_or_survey_number", "rtcFile", "rtc_path", "landRecord"),
+                    };
+                  });
                   const uploadedForCsv: Record<string, boolean> = {};
-                  filteredCoconut.forEach((c) => {
+                  dataToExport.forEach((c) => {
                     const code = String(c.farmer_id ?? c.farmer_code ?? c.id ?? "").trim();
                     uploadedForCsv[code] = isFarmerInBucketList(code, bucketFolderNames as string[]);
                   });
-                  
-                  console.log("[DEBUG] Building CSV with", Object.keys(docLinksByCode).length, "document sets");
-                  
                   const csv = buildCoconutCsv(
-                    filteredCoconut,
+                    dataToExport,
                     (c, hasAllFourFromBucket) => getSubmissionStatus(c, hasAllFourFromBucket),
                     getAreaHa,
                     docLinksByCode,
@@ -815,32 +715,20 @@ export default function ValidatorFarmers() {
                   if (!csv || csv.length === 0) {
                     throw new Error("Failed to generate CSV content");
                   }
-                  
-                  console.log("[DEBUG] CSV built, length:", csv.length);
-                  
-                  // Sanitize filename
-                  const searchPart = coconutSearch.trim() ? `-${coconutSearch.trim().slice(0, 20).replace(/[^\w\-]/g, '_')}` : "";
-                  const name = `coconut-plantations${searchPart}-${new Date().toISOString().slice(0, 10)}.csv`;
+                  const searchPart = coconutSearch.trim() ? `-${coconutSearch.trim().slice(0, 20).replace(/[^\w\-]/g, "_")}` : "";
+                  const tabPart = statusTab === "all" ? "all" : statusTab === "submitted" ? "submitted" : "incomplete";
+                  const name = `coconut-plantations-${tabPart}${searchPart}-${new Date().toISOString().slice(0, 10)}.csv`;
                   
                   const url = createCsvBlobUrl(csv);
-                  console.log("[DEBUG] Blob URL created:", url);
-                  
                   setExportReady({ url, filename: name });
                   
                   // Trigger download with delay to ensure UI updates
                   setTimeout(() => {
-                    console.log("[DEBUG] Triggering download for:", name);
-                    try {
-                      downloadCsv(csv, name);
-                    } catch (downloadError) {
-                      console.error("[DEBUG] Download trigger failed:", downloadError);
-                      // Don't throw here - the user can still use the manual link
-                    }
+                    try { downloadCsv(csv, name); } catch { /* user can use link */ }
                   }, 100);
                   
                 } catch (err) {
                   const message = err instanceof Error ? err.message : "Export failed";
-                  console.error("[DEBUG] Export error:", err);
                   setExportError(message);
                   
                   // Show user-friendly error messages
@@ -857,13 +745,27 @@ export default function ValidatorFarmers() {
                   setExporting(false);
                 }
               }}
-              disabled={coconutLoading || exporting || filteredCoconut.length === 0}
+              disabled={coconutLoading || exporting || tabFilteredCoconut.length === 0}
             >
               <Download className="h-4 w-4" />
               {exporting ? "Preparing export…" : "Download Excel"}
             </Button>
           </div>
         </div>
+
+        <Tabs value={statusTab} onValueChange={(v) => setStatusTab(v as StatusTab)} className="mb-4">
+          <TabsList className="grid w-full max-w-md grid-cols-3 h-12 rounded-lg bg-muted/60 p-1">
+            <TabsTrigger value="all" className="rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              All ({recordCounts.total ?? 0})
+            </TabsTrigger>
+            <TabsTrigger value="submitted" className="rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              Submitted ({recordCounts.submitted ?? 0})
+            </TabsTrigger>
+            <TabsTrigger value="incomplete" className="rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              Incomplete ({recordCounts.incomplete ?? 0})
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
 
         <div className="space-y-4">
           {coconutError && (
@@ -905,7 +807,7 @@ export default function ValidatorFarmers() {
                     coconutPageRows.map((c: CoconutPlantationRow) => {
                       const areaHa = getAreaHa(c);
                       const code = String(c.farmer_id ?? c.farmer_code ?? c.id ?? "").trim();
-                      const hasUploaded = !!hasUploadedByCode[code];
+                      const hasUploaded = !!hasUploadedByCodeAll[code];
                       const status = bucketFoldersLoading ? "Checking" : (hasUploaded ? "Submitted" : "Incomplete");
                       const plots = getPlotsFromRow(c as any);
                       const hasGeoboundaries = plots.some((p) => Array.isArray(p.latlngs) && p.latlngs.length >= 3);
@@ -980,7 +882,11 @@ export default function ValidatorFarmers() {
                       <td colSpan={11} className="px-6 py-12 text-center text-muted-foreground">
                         {coconutSearch.trim()
                           ? "No matching records for your search. Try a different ID, name, or district."
-                          : "No rows in coconut_plantations table. Add data in Supabase or check RLS."}
+                          : statusTab === "submitted"
+                            ? "No submitted records in this view."
+                            : statusTab === "incomplete"
+                              ? "No incomplete records in this view."
+                              : "No rows in coconut_plantations table. Add data in Supabase or check RLS."}
                       </td>
                     </tr>
                   )}
