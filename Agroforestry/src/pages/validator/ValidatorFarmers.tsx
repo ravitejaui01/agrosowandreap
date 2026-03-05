@@ -62,7 +62,13 @@ function getDocLinksFromList(docs: { path?: string; name: string; url: string }[
   return out;
 }
 
-/** Build CSV content from coconut rows (Excel-compatible). Includes Farmer Information, Submitted date, and document links. */
+/** Keys we output as fixed columns first (not duplicated in "all other columns") */
+const FIXED_CSV_KEYS = new Set([
+  "id", "farmer_code", "farmer_id", "farmer_name", "phone", "phone_number", "mobile", "mobile_number",
+  "aadhaar", "aadhaar_number", "active_status", "district", "village", "date_of_plantation", "agent_name",
+]);
+
+/** Build CSV content from coconut rows (Excel-compatible). Includes fixed columns then ALL other Supabase columns. */
 function buildCoconutCsv(
   rows: CoconutPlantationRow[],
   getStatus: (c: CoconutPlantationRow, hasAllFourFromBucket?: boolean) => string,
@@ -73,28 +79,31 @@ function buildCoconutCsv(
   appOrigin: string = ""
 ): string {
   try {
-    // Validate input
-    if (!Array.isArray(rows)) {
-      throw new Error("Invalid data: rows must be an array");
-    }
-    
-    const header = "ID,Farmer Code,Farmer Name,Mobile No,Aadhaar,Active Status,District,Village,Date of Plantation,Agent,Area (ha),Status,Submitted,Has KML,Plots Count,KML Download Link";
+    if (!Array.isArray(rows)) throw new Error("Invalid data: rows must be an array");
+
     const escape = (v: unknown): string => {
       if (v === null || v === undefined) return "";
-      let s = String(v);
-      // Prevent Excel from treating cell as formula (=, +, -, @)
+      let s: string;
+      if (typeof v === "object" && v !== null) {
+        try {
+          s = JSON.stringify(v);
+          if (s.length > 2000) s = s.slice(0, 1997) + "...";
+        } catch {
+          s = "(object)";
+        }
+      } else {
+        s = String(v);
+      }
       if (/^[=+\-@]/.test(s)) s = "'" + s;
-      // Handle newlines and tabs
-      s = s.replace(/[\r\n\t]/g, ' ');
-      // Quote if contains CSV special chars, newlines, or URL (://) so Excel doesn't break links
+      s = s.replace(/[\r\n\t]/g, " ");
       if (/[",\n\r]/.test(s) || /:\/\//.test(s)) return `"${s.replace(/"/g, '""')}"`;
       return s;
     };
-    
+
     const submittedDate = (c: CoconutPlantationRow, status: string): string => {
       if (status !== "Submitted") return "";
       try {
-        const raw = c.updated_at || c.created_at;
+        const raw = (c as Record<string, unknown>).updated_at ?? (c as Record<string, unknown>).created_at;
         if (!raw) return "";
         const date = new Date(String(raw));
         if (isNaN(date.getTime())) return "";
@@ -103,11 +112,19 @@ function buildCoconutCsv(
         return "";
       }
     };
-    
+
+    const allKeys = new Set<string>();
+    rows.forEach((c) => Object.keys(c as Record<string, unknown>).forEach((k) => allKeys.add(k)));
+    const extraKeys = [...allKeys].filter((k) => !FIXED_CSV_KEYS.has(k)).sort();
+
+    const fixedHeader = "ID,Farmer Code,Farmer Name,Mobile No,Aadhaar,Active Status,District,Village,Date of Plantation,Agent,Area (ha),Status,Submitted,Has KML,Plots Count,KML Download Link";
+    const header = extraKeys.length > 0 ? fixedHeader + "," + extraKeys.map((k) => escape(k)).join(",") : fixedHeader;
+
     const lines = [
       header,
       ...rows.map((c, index) => {
         try {
+          const r = c as Record<string, unknown>;
           const areaHa = getAreaHa(c);
           const farmerCode = String(c.farmer_id ?? c.farmer_code ?? c.id ?? "").trim();
           const hasAllFourFromBucket = hasAllFourDocsByCode[farmerCode] || false;
@@ -116,37 +133,25 @@ function buildCoconutCsv(
           const date = c.date_of_plantation ? new Date(c.date_of_plantation).toLocaleDateString() : "";
           const aadhaar = escape(getCsvVal(c, "aadhaar", "aadhaar_number"));
           const activeStatus = escape(getCsvVal(c, "active_status", "activeStatus"));
-          const links = docLinksByCode[farmerCode] ?? {};
-          
-          
-          
-          
-          
-          // Check for KML/geoboundaries with error handling
+
           let hasKml = false;
           let plotsCount = 0;
           let kmlDownloadLink = "";
-          
           try {
             const plots = getPlotsFromRow(c as any);
-            plotsCount = plots.length;
+            plotsCount = plots.length || Number((c as Record<string, unknown>).total_plots) || Number((c as Record<string, unknown>).number_of_plots) || 0;
             hasKml = plots.some((p) => Array.isArray(p.latlngs) && p.latlngs.length >= 3);
-            
-            // KML link: app URL so after deploy (e.g. Vercel) link works — opens /validator/kml/:id, page triggers download
             if (hasKml && appOrigin) {
               const farmerId = c.id ?? farmerCode;
-              if (farmerId) {
-                kmlDownloadLink = `${appOrigin.replace(/\/$/, "")}/validator/kml/${encodeURIComponent(String(farmerId))}`;
-              }
+              if (farmerId) kmlDownloadLink = `${appOrigin.replace(/\/$/, "")}/validator/kml/${encodeURIComponent(String(farmerId))}`;
             }
-          } catch (plotError) {
-            console.error("Error processing plots for row", index, ":", plotError);
+          } catch {
             plotsCount = 0;
             hasKml = false;
           }
-          
+
           const phone = getCsvVal(c, "phone", "phone_number", "mobile", "mobile_number");
-          return [
+          const fixedPart = [
             id,
             escape(farmerCode),
             escape(c.farmer_name),
@@ -163,33 +168,16 @@ function buildCoconutCsv(
             escape(hasKml ? "Yes" : "No"),
             escape(String(plotsCount)),
             escape(kmlDownloadLink),
-          ].join(",");
+          ];
+          const extraPart = extraKeys.map((k) => escape(r[k]));
+          return [...fixedPart, ...extraPart].join(",");
         } catch (rowError) {
           console.error("Error processing CSV row", index, ":", rowError);
-          // Return a safe fallback row
-          return [
-            escape(`error-row-${index}`),
-            "",
-            "Error processing row",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "Error",
-            "",
-            "No",
-            "0",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-          ].join(",");
+          const fixedPart = [
+            escape(`error-row-${index}`), "", "Error processing row", "", "", "", "", "", "", "Error", "", "", "No", "0", "", "",
+          ];
+          const extraPart = extraKeys.map(() => "");
+          return [...fixedPart, ...extraPart].join(",");
         }
       }),
     ];

@@ -105,19 +105,29 @@ function PlotGeoboundariesModal({
   totalAreaHa?: number;
   totalGeoboundariesHa?: number;
 }) {
+  const [mapReady, setMapReady] = useState(false);
+  useEffect(() => {
+    if (open) {
+      const t = setTimeout(() => setMapReady(true), 150);
+      return () => clearTimeout(t);
+    }
+    setMapReady(false);
+  }, [open]);
+
   const polygons = useMemo(() => {
     return (plots ?? []).filter((p) => Array.isArray(p.latlngs) && p.latlngs.length >= 3);
   }, [plots]);
 
   const center: [number, number] = useMemo(() => {
     if (polygons.length === 0) return [12.97, 77.59];
-    const all = polygons.flatMap((p) => p.latlngs ?? []);
+    const all = polygons.flatMap((p) => p.latlngs ?? []).filter((c) => Array.isArray(c) && c.length >= 2 && Number.isFinite(c[0]) && Number.isFinite(c[1]));
+    if (all.length === 0) return [12.97, 77.59];
     const lats = all.map((c) => c[0]);
     const lngs = all.map((c) => c[1]);
-    return [
-      (Math.min(...lats) + Math.max(...lats)) / 2,
-      (Math.min(...lngs) + Math.max(...lngs)) / 2,
-    ];
+    const lat = (Math.min(...lats) + Math.max(...lats)) / 2;
+    const lng = (Math.min(...lngs) + Math.max(...lngs)) / 2;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return [12.97, 77.59];
+    return [lat, lng];
   }, [polygons]);
 
   const formatFarmerDetail = (key: string, value: unknown) => {
@@ -164,7 +174,10 @@ function PlotGeoboundariesModal({
             </Button>
           </DialogTitle>
         </DialogHeader>
-        <div className="flex-1 rounded-md overflow-hidden border">
+        <div className="flex-1 rounded-md overflow-hidden border min-h-[700px]">
+          {!mapReady ? (
+            <div className="h-full min-h-[700px] flex items-center justify-center bg-muted text-muted-foreground">Loading map…</div>
+          ) : (
           <MapContainer
             center={center}
             zoom={13}
@@ -220,6 +233,7 @@ function PlotGeoboundariesModal({
             <MapBounds polygons={polygons} />
             <MapControls />
           </MapContainer>
+          )}
         </div>
         <div className="flex justify-between items-center pt-2 mt-2 text-xs">
           <div className="text-muted-foreground">
@@ -629,7 +643,7 @@ export default function ValidatorCoconutDetail() {
                 <AccordionContent>
                   <div className="pt-2 space-y-4">
                     <p className="text-sm">
-                      <strong>Plots Count:</strong> {plotsList.length} &nbsp;
+                      <strong>Plots Count:</strong> {plotsList.length || (Number((row as Record<string, unknown>).total_plots) || (row.number_of_plots ?? 0))} &nbsp;
                       <strong>Total Area (Ha):</strong> {Number(totalAreaHa).toFixed(2)} &nbsp;
                       <strong>Total Geoboundaries Area (Ha):</strong> {totalGeoboundariesHa.toFixed(3)}
                     </p>
@@ -750,7 +764,7 @@ export default function ValidatorCoconutDetail() {
                   <div className="pt-2 space-y-4">
                     <div className="flex flex-wrap items-center gap-3">
                       <p className="text-sm">
-                        <strong>Plots Count:</strong> {plotsList.length || (row.number_of_plots ?? 0)}    
+                        <strong>Plots Count:</strong> {plotsList.length || (Number((row as Record<string, unknown>).total_plots) || (row.number_of_plots ?? 0))}    
                         <strong>Total Area (Ha):</strong> {Number(totalAreaHa).toFixed(2)}    
                         <strong>Total Geoboundaries Area (Ha):</strong> {totalGeoboundariesHa.toFixed(3)}
                       </p>
@@ -1004,6 +1018,7 @@ export default function ValidatorCoconutDetail() {
             {/* Plot Geoboundaries Modal - only when open */}
             {mapOpen && (
               <PlotGeoboundariesModal
+                key="plot-geoboundaries-map"
                 open={mapOpen}
                 onOpenChange={setMapOpen}
                 plots={plotsList}

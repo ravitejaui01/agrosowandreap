@@ -56,6 +56,40 @@ function normalizePlotsList(plots) {
   return arr.map(normalizePlot).filter(Boolean);
 }
 
+function parseGeoCoordinatesText(text) {
+  const plots = [];
+  const str = String(text).trim();
+  if (!str) return plots;
+  const plotBlocks = str.split(/\s*;\s*Plot\s+\d+\s*:\s*/i).filter(Boolean);
+  for (let i = 0; i < plotBlocks.length; i++) {
+    const block = plotBlocks[i].replace(/^\s*Plot\s+\d+\s*:\s*/i, "").trim();
+    const acresMatch = block.match(/\s*\(([\d.]+)\s*acres?\)\s*$/i);
+    const areaAcres = acresMatch ? Number(acresMatch[1]) : undefined;
+    const pairs = block.replace(/\s*\([^)]*\)\s*$/, "").trim();
+    const latlngs = [];
+    const regex = /([\d.-]+)\s*,\s*([\d.-]+)/g;
+    let m;
+    while ((m = regex.exec(pairs)) !== null) {
+      const lat = Number(m[1]);
+      const lng = Number(m[2]);
+      if (!Number.isNaN(lat) && !Number.isNaN(lng)) latlngs.push([lat, lng]);
+    }
+    if (latlngs.length >= 3) plots.push({ plotNumber: i + 1, latlngs, areaAcres: Number.isNaN(areaAcres) ? undefined : areaAcres });
+  }
+  if (plots.length > 0) return plots;
+  const singleBlock = str.replace(/\s*\([^)]*\)\s*$/g, "").trim();
+  const singleLatlngs = [];
+  const singleRegex = /([\d.-]+)\s*,\s*([\d.-]+)/g;
+  let singleM;
+  while ((singleM = singleRegex.exec(singleBlock)) !== null) {
+    const lat = Number(singleM[1]);
+    const lng = Number(singleM[2]);
+    if (!Number.isNaN(lat) && !Number.isNaN(lng)) singleLatlngs.push([lat, lng]);
+  }
+  if (singleLatlngs.length >= 3) return [{ plotNumber: 1, latlngs: singleLatlngs, areaAcres: undefined }];
+  return plots;
+}
+
 function plotsFromFeatureCollection(fc) {
   if (fc == null || typeof fc !== "object" || !Array.isArray(fc.features)) return [];
   const result = [];
@@ -71,6 +105,11 @@ function plotsFromFeatureCollection(fc) {
 function extractPlotsFrom(raw) {
   if (raw == null) return [];
   if (typeof raw === "string") {
+    const trimmed = String(raw).trim();
+    if (/Plot\s+\d+\s*:[\d\s,.;()-]+/i.test(trimmed) || /^[\d.-]+\s*,\s*[\d.-]+(\s*;\s*[\d.-]+\s*,\s*[\d.-]+)+/i.test(trimmed)) {
+      const parsed = parseGeoCoordinatesText(trimmed);
+      if (parsed.length > 0) return parsed;
+    }
     try {
       return extractPlotsFrom(JSON.parse(raw));
     } catch {
@@ -92,42 +131,95 @@ function extractPlotsFrom(raw) {
       const plots = geoJsonToPlots(raw.coordinates);
       if (plots.length > 0) return plots;
     }
+    if (raw.geom?.coordinates) {
+      const plots = geoJsonToPlots(raw.geom.coordinates);
+      if (plots.length > 0) return plots;
+    }
   }
   return normalizePlotsList(raw);
 }
 
-const KNOWN_KEYS = [
+const PLOT_GEOMETRY_KEYS = [
   "plots", "mapped_details", "mapped_details_geoboundaries", "plot_geoboundaries",
   "mapped_data", "geoboundaries", "plot_boundaries", "boundaries", "polygons",
   "geometry", "geojson", "plot_coordinates", "coordinates", "plot_geometries",
   "lat_lngs", "plot_latlngs", "features", "geojson_plots", "mapped_geoboundaries",
   "plot_polygons", "boundaries_geojson", "geoboundaries_geojson",
+  "geo_coordinates", "geom", "the_geom", "geojson_geom", "geom_geojson",
+  "shape", "shapes", "multipolygon", "multi_polygon", "plot_geometry", "plot_geometries",
+  "boundary_geom", "polygon_geom", "geodata", "location_geom", "area_geom",
+  "geoboundary", "mapped_geoboundary", "plot_boundary", "rings", "coords",
 ];
+
+/** Normalize [lat,lng] vs [lng,lat] so same polygon from different columns dedupes. India: lat ~8–35, lng ~68–97; worldwide: |lat|<=90, |lng|<=180. */
+function normalizePointForDedup(c) {
+  const a = Number(c[0]);
+  const b = Number(c[1]);
+  if (a >= 6 && a <= 38 && b >= 65 && b <= 99) return [a, b];
+  if (a >= 65 && a <= 99 && b >= 6 && b <= 38) return [b, a];
+  if (Math.abs(a) <= 90 && (Math.abs(b) > 90 || b < -180 || b > 180)) return [a, b];
+  if ((Math.abs(a) > 90 || a < -180 || a > 180) && Math.abs(b) <= 90) return [b, a];
+  return [a, b];
+}
+
+const DEDUP_COORD_DECIMALS = 4;
+
+function plotKey(latlngs) {
+  const normalized = latlngs.map((c) => normalizePointForDedup(c));
+  const rounded = normalized.map((c) => `${c[0].toFixed(DEDUP_COORD_DECIMALS)},${c[1].toFixed(DEDUP_COORD_DECIMALS)}`);
+  const unique = [...new Set(rounded)];
+  return unique.sort().join("|");
+}
 
 export function getPlotsFromRow(row) {
   if (!row) return [];
-  const seen = new Set();
+  const seen = new Map();
   const allPlots = [];
   function addPlots(plots) {
     for (const p of plots) {
       if (!Array.isArray(p.latlngs) || p.latlngs.length < 3) continue;
-      const key = p.latlngs.map((c) => `${Number(c[0]).toFixed(6)},${Number(c[1]).toFixed(6)}`).join("|");
-      if (seen.has(key)) continue;
-      seen.add(key);
+      const key = plotKey(p.latlngs);
+      const existingIdx = seen.get(key);
+      const hasArea = p.areaAcres != null && !Number.isNaN(Number(p.areaAcres));
+      if (existingIdx !== undefined) {
+        const existing = allPlots[existingIdx];
+        const existingHasArea = existing.areaAcres != null && !Number.isNaN(Number(existing.areaAcres));
+        if (hasArea && !existingHasArea) allPlots[existingIdx] = p;
+        continue;
+      }
+      seen.set(key, allPlots.length);
       allPlots.push(p);
     }
   }
-  for (const key of KNOWN_KEYS) {
+  for (const key of PLOT_GEOMETRY_KEYS) {
     const raw = row[key];
     if (raw == null) continue;
     addPlots(extractPlotsFrom(raw));
   }
   for (const key of Object.keys(row)) {
-    if (KNOWN_KEYS.includes(key)) continue;
+    if (PLOT_GEOMETRY_KEYS.includes(key)) continue;
     const lower = key.toLowerCase();
-    if (lower.includes("mapped") || lower.includes("plot") || lower.includes("boundary") || lower.includes("geo") || lower.includes("polygon") || lower.includes("coordinate") || lower.includes("lat_lng") || lower.includes("feature") || lower.includes("ring")) {
+    if (lower.includes("mapped") || lower.includes("plot") || lower.includes("boundary") || lower.includes("geo") || lower.includes("polygon") || lower.includes("coordinate") || lower.includes("lat_lng") || lower.includes("feature") || lower.includes("ring") || lower.includes("geom") || lower.includes("shape") || lower.includes("multipolygon")) {
       addPlots(extractPlotsFrom(row[key]));
     }
+  }
+  for (const key of Object.keys(row)) {
+    if (PLOT_GEOMETRY_KEYS.includes(key)) continue;
+    const lower = key.toLowerCase();
+    if (lower.includes("mapped") || lower.includes("plot") || lower.includes("boundary") || lower.includes("geo") || lower.includes("polygon") || lower.includes("coordinate") || lower.includes("lat_lng") || lower.includes("feature") || lower.includes("ring") || lower.includes("geom") || lower.includes("shape")) continue;
+    const val = row[key];
+    if (val != null && typeof val === "object" && (Array.isArray(val) || Object.keys(val).length > 0)) {
+      addPlots(extractPlotsFrom(val));
+    }
+  }
+  const totalPlots = Number(row.total_plots ?? row.number_of_plots ?? row.totalPlots ?? row.numberOfPlots ?? 0);
+  if (totalPlots > 0 && allPlots.length > totalPlots) {
+    const withAreaFirst = [...allPlots].sort((a, b) => {
+      const aHas = (a.areaAcres != null && !Number.isNaN(Number(a.areaAcres))) ? 1 : 0;
+      const bHas = (b.areaAcres != null && !Number.isNaN(Number(b.areaAcres))) ? 1 : 0;
+      return bHas - aHas;
+    });
+    return withAreaFirst.slice(0, totalPlots);
   }
   return allPlots;
 }

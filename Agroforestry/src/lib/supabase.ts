@@ -118,6 +118,8 @@ export interface CoconutPlantationRow {
   total_area_hectares?: number;
   area_under_coconut_hectares?: number;
   number_of_plots?: number;
+  /** Supabase coconut_plantations may have total_plots (e.g. from Colab upload) */
+  total_plots?: number;
   state?: string;
   created_at?: string;
   created_by?: string;
@@ -147,10 +149,57 @@ function plotsFromFeatureCollection(fc: unknown): CoconutPlotRow[] {
   return result;
 }
 
+/**
+ * Parse geo_coordinates text format: "Plot 1: lat,lng;lat,lng;... (X acres); Plot 2: ..."
+ * Returns one CoconutPlotRow per plot with latlngs as [lat, lng][].
+ */
+function parseGeoCoordinatesText(text: string): CoconutPlotRow[] {
+  const plots: CoconutPlotRow[] = [];
+  const str = String(text).trim();
+  if (!str) return plots;
+  const plotBlocks = str.split(/\s*;\s*Plot\s+\d+\s*:\s*/i).filter(Boolean);
+  for (let i = 0; i < plotBlocks.length; i++) {
+    const block = plotBlocks[i].replace(/^\s*Plot\s+\d+\s*:\s*/i, "").trim();
+    const acresMatch = block.match(/\s*\(([\d.]+)\s*acres?\)\s*$/i);
+    const areaAcres = acresMatch ? Number(acresMatch[1]) : undefined;
+    const pairs = block.replace(/\s*\([^)]*\)\s*$/, "").trim();
+    const latlngs: [number, number][] = [];
+    const regex = /([\d.-]+)\s*,\s*([\d.-]+)/g;
+    let m: RegExpExecArray | null;
+    while ((m = regex.exec(pairs)) !== null) {
+      const lat = Number(m[1]);
+      const lng = Number(m[2]);
+      if (!Number.isNaN(lat) && !Number.isNaN(lng)) latlngs.push([lat, lng]);
+    }
+    if (latlngs.length >= 3) {
+      plots.push({ plotNumber: i + 1, latlngs, areaAcres: Number.isNaN(Number(areaAcres)) ? undefined : Number(areaAcres) });
+    }
+  }
+  if (plots.length > 0) return plots;
+  const singleBlock = str.replace(/\s*\([^)]*\)\s*$/g, "").trim();
+  const singleLatlngs: [number, number][] = [];
+  const singleRegex = /([\d.-]+)\s*,\s*([\d.-]+)/g;
+  let singleM: RegExpExecArray | null;
+  while ((singleM = singleRegex.exec(singleBlock)) !== null) {
+    const lat = Number(singleM[1]);
+    const lng = Number(singleM[2]);
+    if (!Number.isNaN(lat) && !Number.isNaN(lng)) singleLatlngs.push([lat, lng]);
+  }
+  if (singleLatlngs.length >= 3) {
+    return [{ plotNumber: 1, latlngs: singleLatlngs, areaAcres: undefined }];
+  }
+  return plots;
+}
+
 /** Try to get plots from any candidate value (array, object with plots/geoboundaries/features) */
 function extractPlotsFrom(raw: unknown): CoconutPlotRow[] {
   if (raw == null) return [];
   if (typeof raw === "string") {
+    const trimmed = (raw as string).trim();
+    if (/Plot\s+\d+\s*:[\d\s,.;()-]+/i.test(trimmed) || /^[\d.-]+\s*,\s*[\d.-]+(\s*;\s*[\d.-]+\s*,\s*[\d.-]+)+/i.test(trimmed)) {
+      const parsed = parseGeoCoordinatesText(trimmed);
+      if (parsed.length > 0) return parsed;
+    }
     try {
       const parsed = JSON.parse(raw) as unknown;
       return extractPlotsFrom(parsed);
@@ -178,30 +227,71 @@ function extractPlotsFrom(raw: unknown): CoconutPlotRow[] {
       const plots = geoJsonToPlots((raw as { coordinates: unknown }).coordinates);
       if (plots.length > 0) return plots;
     }
+    if ("geom" in raw) {
+      const g = (raw as { geom: unknown }).geom;
+      if (g != null && typeof g === "object" && Array.isArray((g as { coordinates?: unknown }).coordinates)) {
+        const plots = geoJsonToPlots((g as { coordinates: unknown }).coordinates);
+        if (plots.length > 0) return plots;
+      }
+    }
   }
   return normalizePlotsList(raw);
 }
 
-/** Get normalized plots from a row: collects from ALL columns and array elements so every farmer with multiple plots (e.g. 30024, or any other) gets correct count and all polygons in Excel, KML, and map */
+/** All coconut_plantations columns that may hold multi-plot geometry (Supabase / Colab / PostGIS) */
+const PLOT_GEOMETRY_KEYS = [
+  "plots", "mapped_details", "mapped_details_geoboundaries", "plot_geoboundaries",
+  "mapped_data", "geoboundaries", "plot_boundaries", "boundaries", "polygons",
+  "geometry", "geojson", "plot_coordinates", "coordinates", "plot_geometries",
+  "lat_lngs", "plot_latlngs", "features", "geojson_plots", "mapped_geoboundaries",
+  "plot_polygons", "boundaries_geojson", "geoboundaries_geojson",
+  "geo_coordinates", "geom", "the_geom", "geojson_geom", "geom_geojson",
+  "shape", "shapes", "multipolygon", "multi_polygon", "plot_geometry", "plot_geometries",
+  "boundary_geom", "polygon_geom", "geodata", "location_geom", "area_geom",
+  "geoboundary", "mapped_geoboundary", "plot_boundary", "rings", "coords",
+];
+
+/** Normalize [lat,lng] vs [lng,lat] so same polygon from different columns dedupes. India: lat ~8–35, lng ~68–97; worldwide: |lat|<=90, |lng|<=180. */
+function normalizePointForDedup(c: [number, number]): [number, number] {
+  const a = Number(c[0]);
+  const b = Number(c[1]);
+  if (a >= 6 && a <= 38 && b >= 65 && b <= 99) return [a, b];
+  if (a >= 65 && a <= 99 && b >= 6 && b <= 38) return [b, a];
+  if (Math.abs(a) <= 90 && (Math.abs(b) > 90 || b < -180 || b > 180)) return [a, b];
+  if ((Math.abs(a) > 90 || a < -180 || a > 180) && Math.abs(b) <= 90) return [b, a];
+  return [a, b];
+}
+
+const DEDUP_COORD_DECIMALS = 4;
+
+/** Build a stable key for a polygon so duplicates (same shape from different columns) collapse. Uses 4 decimals and unique points so closed rings match. */
+function plotKey(latlngs: [number, number][]): string {
+  const normalized = latlngs.map((c) => normalizePointForDedup(c));
+  const rounded = normalized.map((c) => `${c[0].toFixed(DEDUP_COORD_DECIMALS)},${c[1].toFixed(DEDUP_COORD_DECIMALS)}`);
+  const unique = [...new Set(rounded)];
+  return unique.sort().join("|");
+}
+
+/** Get normalized plots from a row: collects from ALL columns and array elements so every farmer with multiple plots gets correct count and all polygons in Excel, KML, and map */
 export function getPlotsFromRow(row: CoconutPlantationRow | null | undefined): CoconutPlotRow[] {
   if (!row) return [];
   const r = row as Record<string, unknown>;
-  const knownKeys = [
-    "plots", "mapped_details", "mapped_details_geoboundaries", "plot_geoboundaries",
-    "mapped_data", "geoboundaries", "plot_boundaries", "boundaries", "polygons",
-    "geometry", "geojson", "plot_coordinates", "coordinates", "plot_geometries",
-    "lat_lngs", "plot_latlngs", "features", "geojson_plots", "mapped_geoboundaries",
-    "plot_polygons", "boundaries_geojson", "geoboundaries_geojson",
-  ];
-  const seen = new Set<string>();
   const allPlots: CoconutPlotRow[] = [];
+  const seen = new Map<string, number>(); // key -> index in allPlots
 
   function addPlots(plots: CoconutPlotRow[]) {
     for (const p of plots) {
       if (!Array.isArray(p.latlngs) || p.latlngs.length < 3) continue;
-      const key = p.latlngs.map((c) => `${c[0].toFixed(6)},${c[1].toFixed(6)}`).join("|");
-      if (seen.has(key)) continue;
-      seen.add(key);
+      const key = plotKey(p.latlngs);
+      const existingIdx = seen.get(key);
+      const hasArea = p.areaAcres != null && !Number.isNaN(Number(p.areaAcres));
+      if (existingIdx !== undefined) {
+        const existing = allPlots[existingIdx];
+        const existingHasArea = existing.areaAcres != null && !Number.isNaN(Number(existing.areaAcres));
+        if (hasArea && !existingHasArea) allPlots[existingIdx] = p;
+        continue;
+      }
+      seen.set(key, allPlots.length);
       allPlots.push(p);
     }
   }
@@ -211,15 +301,33 @@ export function getPlotsFromRow(row: CoconutPlantationRow | null | undefined): C
     addPlots(extractPlotsFrom(val));
   }
 
-  for (const key of knownKeys) {
+  for (const key of PLOT_GEOMETRY_KEYS) {
     tryValue(r[key]);
   }
   for (const key of Object.keys(r)) {
-    if (knownKeys.includes(key)) continue;
+    if (PLOT_GEOMETRY_KEYS.includes(key)) continue;
     const lower = key.toLowerCase();
-    if (lower.includes("mapped") || lower.includes("plot") || lower.includes("boundary") || lower.includes("geo") || lower.includes("polygon") || lower.includes("coordinate") || lower.includes("lat_lng") || lower.includes("feature") || lower.includes("ring")) {
+    if (lower.includes("mapped") || lower.includes("plot") || lower.includes("boundary") || lower.includes("geo") || lower.includes("polygon") || lower.includes("coordinate") || lower.includes("lat_lng") || lower.includes("feature") || lower.includes("ring") || lower.includes("geom") || lower.includes("shape") || lower.includes("multipolygon")) {
       tryValue(r[key]);
     }
+  }
+  for (const key of Object.keys(r)) {
+    if (PLOT_GEOMETRY_KEYS.includes(key)) continue;
+    const lower = key.toLowerCase();
+    if (lower.includes("mapped") || lower.includes("plot") || lower.includes("boundary") || lower.includes("geo") || lower.includes("polygon") || lower.includes("coordinate") || lower.includes("lat_lng") || lower.includes("feature") || lower.includes("ring") || lower.includes("geom") || lower.includes("shape")) continue;
+    const val = r[key];
+    if (val != null && typeof val === "object" && (Array.isArray(val) || Object.keys(val as object).length > 0)) {
+      tryValue(val);
+    }
+  }
+  const totalPlots = Number((r.total_plots ?? r.number_of_plots ?? r.totalPlots ?? r.numberOfPlots) ?? 0);
+  if (totalPlots > 0 && allPlots.length > totalPlots) {
+    const withAreaFirst = [...allPlots].sort((a, b) => {
+      const aHas = a.areaAcres != null && !Number.isNaN(Number(a.areaAcres)) ? 1 : 0;
+      const bHas = b.areaAcres != null && !Number.isNaN(Number(b.areaAcres)) ? 1 : 0;
+      return bHas - aHas;
+    });
+    return withAreaFirst.slice(0, totalPlots);
   }
   return allPlots;
 }
