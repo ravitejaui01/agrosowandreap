@@ -272,9 +272,18 @@ function plotKey(latlngs: [number, number][]): string {
   return unique.sort().join("|");
 }
 
+export interface GetPlotsFromRowOptions {
+  /** When true (default), cap result to row total_plots/number_of_plots when set. Set false for KML export so all plots are included. */
+  capByTotalPlots?: boolean;
+}
+
 /** Get normalized plots from a row: collects from ALL columns and array elements so every farmer with multiple plots gets correct count and all polygons in Excel, KML, and map */
-export function getPlotsFromRow(row: CoconutPlantationRow | null | undefined): CoconutPlotRow[] {
+export function getPlotsFromRow(
+  row: CoconutPlantationRow | null | undefined,
+  options?: GetPlotsFromRowOptions
+): CoconutPlotRow[] {
   if (!row) return [];
+  const capByTotalPlots = options?.capByTotalPlots !== false;
   const r = row as Record<string, unknown>;
   const allPlots: CoconutPlotRow[] = [];
   const seen = new Map<string, number>(); // key -> index in allPlots
@@ -320,14 +329,16 @@ export function getPlotsFromRow(row: CoconutPlantationRow | null | undefined): C
       tryValue(val);
     }
   }
-  const totalPlots = Number((r.total_plots ?? r.number_of_plots ?? r.totalPlots ?? r.numberOfPlots) ?? 0);
-  if (totalPlots > 0 && allPlots.length > totalPlots) {
-    const withAreaFirst = [...allPlots].sort((a, b) => {
-      const aHas = a.areaAcres != null && !Number.isNaN(Number(a.areaAcres)) ? 1 : 0;
-      const bHas = b.areaAcres != null && !Number.isNaN(Number(b.areaAcres)) ? 1 : 0;
-      return bHas - aHas;
-    });
-    return withAreaFirst.slice(0, totalPlots);
+  if (capByTotalPlots) {
+    const totalPlots = Number((r.total_plots ?? r.number_of_plots ?? r.totalPlots ?? r.numberOfPlots) ?? 0);
+    if (totalPlots > 0 && allPlots.length > totalPlots) {
+      const withAreaFirst = [...allPlots].sort((a, b) => {
+        const aHas = a.areaAcres != null && !Number.isNaN(Number(a.areaAcres)) ? 1 : 0;
+        const bHas = b.areaAcres != null && !Number.isNaN(Number(b.areaAcres)) ? 1 : 0;
+        return bHas - aHas;
+      });
+      return withAreaFirst.slice(0, totalPlots);
+    }
   }
   return allPlots;
 }

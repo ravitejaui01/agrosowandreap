@@ -141,9 +141,8 @@ function buildCoconutCsv(
             const plots = getPlotsFromRow(c as any);
             plotsCount = plots.length || Number((c as Record<string, unknown>).total_plots) || Number((c as Record<string, unknown>).number_of_plots) || 0;
             hasKml = plots.some((p) => Array.isArray(p.latlngs) && p.latlngs.length >= 3);
-            if (hasKml && appOrigin) {
-              const farmerId = c.id ?? farmerCode;
-              if (farmerId) kmlDownloadLink = `${appOrigin.replace(/\/$/, "")}/validator/kml/${encodeURIComponent(String(farmerId))}`;
+            if (hasKml && appOrigin && farmerCode) {
+              kmlDownloadLink = `${appOrigin.replace(/\/$/, "")}/validator/kml/${encodeURIComponent(farmerCode)}`;
             }
           } catch {
             plotsCount = 0;

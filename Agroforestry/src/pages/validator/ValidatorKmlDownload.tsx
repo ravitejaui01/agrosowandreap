@@ -23,15 +23,20 @@ export default function ValidatorKmlDownload() {
 
   useEffect(() => {
     if (!row || !id || downloadedRef.current) return;
-    const plots = getPlotsFromRow(row);
-    const hasKml = plots.some((p) => Array.isArray(p.latlngs) && p.latlngs.length >= 3);
-    if (!hasKml) return;
+    const plots = getPlotsFromRow(row, { capByTotalPlots: false });
+    const validPlots = plots.filter((p) => Array.isArray(p.latlngs) && p.latlngs.length >= 3);
+    if (validPlots.length === 0) return;
     downloadedRef.current = true;
-    const code = String(row.farmer_id ?? row.farmer_code ?? row.id ?? id).trim();
-    const kml = buildKmlForPlots(plots, code || id, row as Record<string, unknown>);
-    const filename = `geoboundaries-${code || id}.kml`;
-    // Trigger download only (same as pasting a data:...kml+xml;base64,... URL in the browser)
-    downloadKml(kml, filename);
+    const code = String(row.farmer_id ?? row.farmer_code ?? row.id ?? id).trim() || id;
+    const rowData = row as Record<string, unknown>;
+    validPlots.forEach((p, i) => {
+      const delay = i * 400;
+      setTimeout(() => {
+        const kml = buildKmlForPlots([p], code, rowData);
+        const filename = `plot_${code}_p${i + 1}.kml`;
+        downloadKml(kml, filename);
+      }, delay);
+    });
   }, [row, id]);
 
   if (!id) {
@@ -66,8 +71,10 @@ export default function ValidatorKmlDownload() {
     );
   }
 
-  const plots = getPlotsFromRow(row);
-  const hasKml = plots.some((p) => Array.isArray(p.latlngs) && p.latlngs.length >= 3);
+  const plots = getPlotsFromRow(row, { capByTotalPlots: false });
+  const validPlots = plots.filter((p) => Array.isArray(p.latlngs) && p.latlngs.length >= 3);
+  const hasKml = validPlots.length > 0;
+  const code = String(row.farmer_id ?? row.farmer_code ?? row.id ?? id).trim() || id;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-6">
@@ -77,12 +84,16 @@ export default function ValidatorKmlDownload() {
             <div className="mx-auto w-14 h-14 rounded-full bg-green-100 flex items-center justify-center">
               <CheckCircle className="h-8 w-8 text-green-600" />
             </div>
-            <h1 className="text-xl font-semibold text-foreground">KML downloaded</h1>
+            <h1 className="text-xl font-semibold text-foreground">
+              {validPlots.length === 1 ? "KML downloaded" : "KML files downloaded"}
+            </h1>
             <p className="text-muted-foreground text-sm">
-              The KML file was downloaded. Open it from your Downloads folder with <strong>Google Earth</strong> or another KML viewer.
+              {validPlots.length === 1
+                ? "The KML file was downloaded. Open it from your Downloads folder with Google Earth or another KML viewer."
+                : `${validPlots.length} individual plot KML files were downloaded (plot_${code}_p1.kml through plot_${code}_p${validPlots.length}.kml). Open them with Google Earth or another KML viewer.`}
             </p>
-            <p className="text-xs text-muted-foreground">
-              File: <span className="font-mono">geoboundaries-{String(row.farmer_id ?? row.farmer_code ?? id)}.kml</span>
+            <p className="text-xs text-muted-foreground font-mono">
+              {validPlots.length === 1 ? `plot_${code}_p1.kml` : `plot_${code}_p1.kml … plot_${code}_p${validPlots.length}.kml`}
             </p>
           </>
         ) : (
