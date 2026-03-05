@@ -69,8 +69,8 @@ function buildCoconutCsv(
   getAreaHa: (c: CoconutPlantationRow) => number | null,
   docLinksByCode: Record<string, DocLinks> = {},
   hasAllFourDocsByCode: Record<string, boolean> = {},
-  /** App origin for clickable KML link (e.g. https://yoursite.com) — link opens farmer detail page where user can download KML */
-  appOrigin: string = ""
+  /** Base URL for KML link — use API base so GET /api/kml/:id returns file directly (one-click download) */
+  kmlBaseUrl: string = ""
 ): string {
   try {
     // Validate input
@@ -132,12 +132,12 @@ function buildCoconutCsv(
             plotsCount = plots.length;
             hasKml = plots.some((p) => Array.isArray(p.latlngs) && p.latlngs.length >= 3);
             
-            // Put clickable link to farmer detail page so user can open it and click KML button
-            if (hasKml) {
+            // KML link: API URL so GET /api/kml/:id returns file directly — one click = immediate download
+            if (hasKml && kmlBaseUrl) {
               const farmerId = c.id ?? farmerCode;
-              kmlDownloadLink = appOrigin && farmerId
-                ? `${appOrigin.replace(/\/$/, "")}/validator/farmers/coconut/${encodeURIComponent(String(farmerId))}`
-                : "Available — open farmer detail page (View → KML button)";
+              if (farmerId) {
+                kmlDownloadLink = `${kmlBaseUrl.replace(/\/$/, "")}/api/kml/${encodeURIComponent(String(farmerId))}`;
+              }
             }
           } catch (plotError) {
             console.error("Error processing plots for row", index, ":", plotError);
@@ -702,13 +702,14 @@ export default function ValidatorFarmers() {
                     const code = String(c.farmer_id ?? c.farmer_code ?? c.id ?? "").trim();
                     uploadedForCsv[code] = isFarmerInBucketList(code, bucketFolderNames as string[]);
                   });
+                  const kmlBaseUrl = (import.meta.env.VITE_API_URL ?? (typeof window !== "undefined" ? window.location.origin : "")).replace(/\/$/, "");
                   const csv = buildCoconutCsv(
                     dataToExport,
                     (c, hasAllFourFromBucket) => getSubmissionStatus(c, hasAllFourFromBucket),
                     getAreaHa,
                     docLinksByCode,
                     uploadedForCsv,
-                    typeof window !== "undefined" ? window.location.origin : ""
+                    kmlBaseUrl
                   );
                   
                   if (!csv || csv.length === 0) {
@@ -782,7 +783,7 @@ export default function ValidatorFarmers() {
               <table className="w-full">
                 <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm border-b border-border">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">ID</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Farmer ID</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Farmer Name</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">District</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Village</th>
@@ -817,7 +818,7 @@ export default function ValidatorFarmers() {
                       return (
                         <tr key={c.id ?? String(c.created_at ?? Math.random())} className="hover:bg-muted/30 transition-colors">
                           <td className="px-6 py-4 font-mono text-xs text-foreground">
-                            {c.id ?? "—"}
+                            {code || "—"}
                           </td>
                           <td className="px-6 py-4 font-medium text-foreground">{c.farmer_name ?? "—"}</td>
                           <td className="px-6 py-4 text-muted-foreground">{c.district ?? "—"}</td>

@@ -14,6 +14,7 @@ import ValidatorFarmers from "./pages/validator/ValidatorFarmers";
 import ValidatorFieldExecutives from "./pages/validator/ValidatorFieldExecutives";
 import ValidatorRecords from "./pages/validator/ValidatorRecords";
 import ValidatorCoconutDetail from "./pages/validator/ValidatorCoconutDetail";
+import ValidatorKmlDownload from "./pages/validator/ValidatorKmlDownload";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/validator/farmers/coconut/:id" element={<ValidatorProtectedRoute><ValidatorCoconutDetail /></ValidatorProtectedRoute>} />
             <Route path="/validator/field-executives" element={<ValidatorProtectedRoute><ValidatorFieldExecutives /></ValidatorProtectedRoute>} />
             <Route path="/validator/records" element={<ValidatorProtectedRoute><ValidatorRecords /></ValidatorProtectedRoute>} />
+            <Route path="/validator/kml/:id" element={<ValidatorProtectedRoute><ValidatorKmlDownload /></ValidatorProtectedRoute>} />
           
           {/* Catch-all */}
           <Route path="*" element={<NotFound />} />

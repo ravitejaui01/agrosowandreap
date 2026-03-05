@@ -13,6 +13,7 @@ import users from "./routes/users.js";
 import farmers from "./routes/farmers.js";
 import coconut from "./routes/coconut.js";
 import rules from "./routes/rules.js";
+import kml from "./routes/kml.js";
 import { query } from "./db/pool.js";
 import { ensureDb } from "./db/runMigrations.js";
 import { syncCoconutToFarmers } from "./db/syncCoconutToFarmers.js";
@@ -40,6 +41,7 @@ app.use("/api/users", users);
 app.use("/api/farmers", farmers);
 app.use("/api/coconut", coconut);
 app.use("/api/rules", rules);
+app.use("/api/kml", kml);
 
 app.use((err, req, res, next) => {
   console.error(err);
