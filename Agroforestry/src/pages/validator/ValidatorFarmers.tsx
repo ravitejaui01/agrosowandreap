@@ -68,7 +68,9 @@ function buildCoconutCsv(
   getStatus: (c: CoconutPlantationRow, hasAllFourFromBucket?: boolean) => string,
   getAreaHa: (c: CoconutPlantationRow) => number | null,
   docLinksByCode: Record<string, DocLinks> = {},
-  hasAllFourDocsByCode: Record<string, boolean> = {}
+  hasAllFourDocsByCode: Record<string, boolean> = {},
+  /** App origin for clickable KML link (e.g. https://yoursite.com) — link opens farmer detail page where user can download KML */
+  appOrigin: string = ""
 ): string {
   try {
     // Validate input
@@ -130,16 +132,12 @@ function buildCoconutCsv(
             plotsCount = plots.length;
             hasKml = plots.some((p) => Array.isArray(p.latlngs) && p.latlngs.length >= 3);
             
-            // Generate KML download link if KML is available
+            // Put clickable link to farmer detail page so user can open it and click KML button
             if (hasKml) {
-              try {
-                const kmlContent = buildKmlForPlots(plots, farmerCode || String(c.id ?? `plot-${index}`));
-                const base64Kml = btoa(kmlContent);
-                kmlDownloadLink = `data:application/vnd.google-earth.kml+xml;base64,${base64Kml}`;
-              } catch (kmlError) {
-                console.error("Error generating KML link for row", index, ":", kmlError);
-                kmlDownloadLink = "Error generating KML";
-              }
+              const farmerId = c.id ?? farmerCode;
+              kmlDownloadLink = appOrigin && farmerId
+                ? `${appOrigin.replace(/\/$/, "")}/validator/farmers/coconut/${encodeURIComponent(String(farmerId))}`
+                : "Available — open farmer detail page (View → KML button)";
             }
           } catch (plotError) {
             console.error("Error processing plots for row", index, ":", plotError);
@@ -709,7 +707,8 @@ export default function ValidatorFarmers() {
                     (c, hasAllFourFromBucket) => getSubmissionStatus(c, hasAllFourFromBucket),
                     getAreaHa,
                     docLinksByCode,
-                    uploadedForCsv
+                    uploadedForCsv,
+                    typeof window !== "undefined" ? window.location.origin : ""
                   );
                   
                   if (!csv || csv.length === 0) {
