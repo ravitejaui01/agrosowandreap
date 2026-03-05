@@ -4,7 +4,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { getCoconutPlantationByIdFromSupabase, getPlotsFromRow, createFarmerRecordInSupabase } from "@/lib/supabase";
 import type { CoconutPlantationRow, CoconutPlotRow } from "@/lib/supabase";
-import { getCoconutPlantationById, getCoconutPlantationByFarmerCode, getCoconutPlantations, updateFarmerRecord, ensureFarmerRecordFromCoconut } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";

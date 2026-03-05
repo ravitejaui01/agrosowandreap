@@ -18,7 +18,7 @@ export interface CoconutPlotRow {
   [key: string]: unknown;
 }
 
-/** GeoJSON uses [lng, lat]; Leaflet wants [lat, lng]. Convert geometry/coordinates to [lat, lng][]. */
+/** GeoJSON uses [lng, lat]; Leaflet wants [lat, lng]. Convert one ring to [lat, lng][]. */
 function geoJsonToLatLngs(coords: unknown): [number, number][] | undefined {
   if (!Array.isArray(coords)) return undefined;
   let ring: number[][] | undefined;
@@ -35,6 +35,26 @@ function geoJsonToLatLngs(coords: unknown): [number, number][] | undefined {
     const [a, b] = Array.isArray(c) ? c : [0, 0];
     return [Number(b), Number(a)] as [number, number];
   });
+}
+
+/** GeoJSON MultiPolygon or array of rings: return one plot per polygon so multi-plot farmers show all. */
+function geoJsonToPlots(coords: unknown): CoconutPlotRow[] {
+  if (!Array.isArray(coords) || coords.length === 0) return [];
+  const first = coords[0];
+  if (!Array.isArray(first)) return [];
+  if (first.length >= 3 && typeof first[0] === "number") {
+    const ring = geoJsonToLatLngs(coords);
+    return ring ? [{ latlngs: ring, plotNumber: 1, areaAcres: undefined }] : [];
+  }
+  if (first.length >= 3 && Array.isArray(first[0])) {
+    const plots: CoconutPlotRow[] = [];
+    for (let i = 0; i < coords.length; i++) {
+      const ring = geoJsonToLatLngs(coords[i]);
+      if (ring) plots.push({ latlngs: ring, plotNumber: i + 1, areaAcres: undefined });
+    }
+    return plots;
+  }
+  return [];
 }
 
 /** Normalize raw plot from DB (snake_case or camelCase) to CoconutPlotRow with latlngs */
@@ -110,42 +130,59 @@ export interface CoconutPlantationRow {
   [key: string]: unknown;
 }
 
-/** Extract plots array from GeoJSON FeatureCollection */
+/** Extract plots array from GeoJSON FeatureCollection; each feature can be Polygon or MultiPolygon */
 function plotsFromFeatureCollection(fc: unknown): CoconutPlotRow[] {
   if (fc == null || typeof fc !== "object" || !Array.isArray((fc as { features?: unknown }).features)) return [];
   const features = (fc as { features: unknown[] }).features;
-  return features.map((f) => {
+  const result: CoconutPlotRow[] = [];
+  features.forEach((f, idx) => {
     if (f && typeof f === "object" && "geometry" in f) {
       const geom = (f as { geometry: { type?: string; coordinates?: unknown } }).geometry;
       if (geom && Array.isArray(geom.coordinates)) {
-        const latlngs = geoJsonToLatLngs(geom.coordinates);
-        if (latlngs) {
-          return { latlngs, plotNumber: undefined, areaAcres: undefined };
-        }
+        const plots = geoJsonToPlots(geom.coordinates);
+        plots.forEach((p, i) => result.push({ ...p, plotNumber: p.plotNumber ?? idx * 100 + i + 1 }));
       }
     }
-    return null;
-  }).filter((p): p is CoconutPlotRow => p != null);
+  });
+  return result;
 }
 
 /** Try to get plots from any candidate value (array, object with plots/geoboundaries/features) */
 function extractPlotsFrom(raw: unknown): CoconutPlotRow[] {
   if (raw == null) return [];
-  if (typeof raw === "object" && !Array.isArray(raw)) {
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      return extractPlotsFrom(parsed);
+    } catch {
+      return [];
+    }
+  }
+  if (Array.isArray(raw)) {
+    return raw.flatMap((item) => extractPlotsFrom(item));
+  }
+  if (typeof raw === "object") {
     if ("plots" in raw) return normalizePlotsList((raw as { plots: unknown }).plots);
     if ("geoboundaries" in raw) return normalizePlotsList((raw as { geoboundaries: unknown }).geoboundaries);
     if ("features" in raw && (raw as { type?: string }).type === "FeatureCollection") {
       return plotsFromFeatureCollection(raw);
     }
+    if ("geometry" in raw) {
+      const geom = (raw as { geometry: { coordinates?: unknown } }).geometry;
+      if (geom && typeof geom === "object" && Array.isArray((geom as { coordinates?: unknown }).coordinates)) {
+        const plots = geoJsonToPlots((geom as { coordinates: unknown }).coordinates);
+        if (plots.length > 0) return plots;
+      }
+    }
     if ("coordinates" in raw) {
-      const latlngs = geoJsonToLatLngs((raw as { coordinates: unknown }).coordinates);
-      if (latlngs) return [{ latlngs, plotNumber: 1, areaAcres: undefined }];
+      const plots = geoJsonToPlots((raw as { coordinates: unknown }).coordinates);
+      if (plots.length > 0) return plots;
     }
   }
   return normalizePlotsList(raw);
 }
 
-/** Get normalized plots from a row: tries known columns then any key that might hold geo data */
+/** Get normalized plots from a row: collects from ALL columns and array elements so every farmer with multiple plots (e.g. 30024, or any other) gets correct count and all polygons in Excel, KML, and map */
 export function getPlotsFromRow(row: CoconutPlantationRow | null | undefined): CoconutPlotRow[] {
   if (!row) return [];
   const r = row as Record<string, unknown>;
@@ -153,29 +190,45 @@ export function getPlotsFromRow(row: CoconutPlantationRow | null | undefined): C
     "plots", "mapped_details", "mapped_details_geoboundaries", "plot_geoboundaries",
     "mapped_data", "geoboundaries", "plot_boundaries", "boundaries", "polygons",
     "geometry", "geojson", "plot_coordinates", "coordinates", "plot_geometries",
+    "lat_lngs", "plot_latlngs", "features", "geojson_plots", "mapped_geoboundaries",
+    "plot_polygons", "boundaries_geojson", "geoboundaries_geojson",
   ];
+  const seen = new Set<string>();
+  const allPlots: CoconutPlotRow[] = [];
+
+  function addPlots(plots: CoconutPlotRow[]) {
+    for (const p of plots) {
+      if (!Array.isArray(p.latlngs) || p.latlngs.length < 3) continue;
+      const key = p.latlngs.map((c) => `${c[0].toFixed(6)},${c[1].toFixed(6)}`).join("|");
+      if (seen.has(key)) continue;
+      seen.add(key);
+      allPlots.push(p);
+    }
+  }
+
+  function tryValue(val: unknown) {
+    if (val == null) return;
+    addPlots(extractPlotsFrom(val));
+  }
+
   for (const key of knownKeys) {
-    const raw = r[key];
-    if (raw == null) continue;
-    const plots = extractPlotsFrom(raw);
-    if (plots.length > 0) return plots;
+    tryValue(r[key]);
   }
   for (const key of Object.keys(r)) {
     if (knownKeys.includes(key)) continue;
     const lower = key.toLowerCase();
-    if (lower.includes("mapped") || lower.includes("plot") || lower.includes("boundary") || lower.includes("geo") || lower.includes("polygon") || lower.includes("coordinate")) {
-      const plots = extractPlotsFrom(r[key]);
-      if (plots.length > 0) return plots;
+    if (lower.includes("mapped") || lower.includes("plot") || lower.includes("boundary") || lower.includes("geo") || lower.includes("polygon") || lower.includes("coordinate") || lower.includes("lat_lng") || lower.includes("feature") || lower.includes("ring")) {
+      tryValue(r[key]);
     }
   }
-  return [];
+  return allPlots;
 }
 
 const PAGE_SIZE = 1000;
 
 /**
- * Fetch all rows from coconut_plantations using cursor-based pagination.
- * Avoids large OFFSETs (e.g. offset=7000) which cause "statement timeout" on big tables.
+ * Fetch all rows from coconut_plantations (Supabase only — source of truth for validator/farmers).
+ * Uses cursor-based pagination to avoid large OFFSETs and statement timeouts.
  */
 export async function getCoconutPlantationsFromSupabase(): Promise<CoconutPlantationRow[]> {
   if (!supabase) {
@@ -212,7 +265,7 @@ export async function getCoconutPlantationsFromSupabase(): Promise<CoconutPlanta
   return all;
 }
 
-/** Fetch one row from coconut_plantations by id (or farmer_code if id match fails) */
+/** Fetch one row from coconut_plantations by id (or farmer_code); Supabase only. */
 export async function getCoconutPlantationByIdFromSupabase(
   id: string
 ): Promise<CoconutPlantationRow | null> {

@@ -19,6 +19,25 @@ function geoJsonToLatLngs(coords) {
   });
 }
 
+function geoJsonToPlots(coords) {
+  if (!Array.isArray(coords) || coords.length === 0) return [];
+  const first = coords[0];
+  if (!Array.isArray(first)) return [];
+  if (first.length >= 3 && typeof first[0] === "number") {
+    const ring = geoJsonToLatLngs(coords);
+    return ring ? [{ latlngs: ring, plotNumber: 1, areaAcres: undefined }] : [];
+  }
+  if (first.length >= 3 && Array.isArray(first[0])) {
+    const plots = [];
+    for (let i = 0; i < coords.length; i++) {
+      const ring = geoJsonToLatLngs(coords[i]);
+      if (ring) plots.push({ latlngs: ring, plotNumber: i + 1, areaAcres: undefined });
+    }
+    return plots;
+  }
+  return [];
+}
+
 function normalizePlot(raw) {
   if (raw == null || typeof raw !== "object") return null;
   let latlngs = raw.latlngs ?? raw.lat_lngs;
@@ -39,24 +58,39 @@ function normalizePlotsList(plots) {
 
 function plotsFromFeatureCollection(fc) {
   if (fc == null || typeof fc !== "object" || !Array.isArray(fc.features)) return [];
-  return fc.features.map((f) => {
+  const result = [];
+  fc.features.forEach((f, idx) => {
     if (f?.geometry?.coordinates) {
-      const latlngs = geoJsonToLatLngs(f.geometry.coordinates);
-      if (latlngs) return { latlngs, plotNumber: undefined, areaAcres: undefined };
+      const plots = geoJsonToPlots(f.geometry.coordinates);
+      plots.forEach((p, i) => result.push({ ...p, plotNumber: p.plotNumber ?? idx * 100 + i + 1 }));
     }
-    return null;
-  }).filter(Boolean);
+  });
+  return result;
 }
 
 function extractPlotsFrom(raw) {
   if (raw == null) return [];
-  if (typeof raw === "object" && !Array.isArray(raw)) {
+  if (typeof raw === "string") {
+    try {
+      return extractPlotsFrom(JSON.parse(raw));
+    } catch {
+      return [];
+    }
+  }
+  if (Array.isArray(raw)) {
+    return raw.flatMap((item) => extractPlotsFrom(item));
+  }
+  if (typeof raw === "object") {
     if (raw.plots != null) return normalizePlotsList(raw.plots);
     if (raw.geoboundaries != null) return normalizePlotsList(raw.geoboundaries);
     if (raw.features && raw.type === "FeatureCollection") return plotsFromFeatureCollection(raw);
+    if (raw.geometry?.coordinates) {
+      const plots = geoJsonToPlots(raw.geometry.coordinates);
+      if (plots.length > 0) return plots;
+    }
     if (raw.coordinates) {
-      const latlngs = geoJsonToLatLngs(raw.coordinates);
-      if (latlngs) return [{ latlngs, plotNumber: 1, areaAcres: undefined }];
+      const plots = geoJsonToPlots(raw.coordinates);
+      if (plots.length > 0) return plots;
     }
   }
   return normalizePlotsList(raw);
@@ -66,25 +100,36 @@ const KNOWN_KEYS = [
   "plots", "mapped_details", "mapped_details_geoboundaries", "plot_geoboundaries",
   "mapped_data", "geoboundaries", "plot_boundaries", "boundaries", "polygons",
   "geometry", "geojson", "plot_coordinates", "coordinates", "plot_geometries",
+  "lat_lngs", "plot_latlngs", "features", "geojson_plots", "mapped_geoboundaries",
+  "plot_polygons", "boundaries_geojson", "geoboundaries_geojson",
 ];
 
 export function getPlotsFromRow(row) {
   if (!row) return [];
+  const seen = new Set();
+  const allPlots = [];
+  function addPlots(plots) {
+    for (const p of plots) {
+      if (!Array.isArray(p.latlngs) || p.latlngs.length < 3) continue;
+      const key = p.latlngs.map((c) => `${Number(c[0]).toFixed(6)},${Number(c[1]).toFixed(6)}`).join("|");
+      if (seen.has(key)) continue;
+      seen.add(key);
+      allPlots.push(p);
+    }
+  }
   for (const key of KNOWN_KEYS) {
     const raw = row[key];
     if (raw == null) continue;
-    const plots = extractPlotsFrom(raw);
-    if (plots.length > 0) return plots;
+    addPlots(extractPlotsFrom(raw));
   }
   for (const key of Object.keys(row)) {
     if (KNOWN_KEYS.includes(key)) continue;
     const lower = key.toLowerCase();
-    if (lower.includes("mapped") || lower.includes("plot") || lower.includes("boundary") || lower.includes("geo") || lower.includes("polygon") || lower.includes("coordinate")) {
-      const plots = extractPlotsFrom(row[key]);
-      if (plots.length > 0) return plots;
+    if (lower.includes("mapped") || lower.includes("plot") || lower.includes("boundary") || lower.includes("geo") || lower.includes("polygon") || lower.includes("coordinate") || lower.includes("lat_lng") || lower.includes("feature") || lower.includes("ring")) {
+      addPlots(extractPlotsFrom(row[key]));
     }
   }
-  return [];
+  return allPlots;
 }
 
 function escapeKml(s) {
