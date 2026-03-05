@@ -78,7 +78,7 @@ function buildCoconutCsv(
       throw new Error("Invalid data: rows must be an array");
     }
     
-    const header = "ID,Farmer Code,Farmer Name,Phone,Aadhaar,Active Status,District,Village,Date of Plantation,Agent,Area (ha),Status,Submitted,Has KML,Plots Count,KML Download Link";
+    const header = "ID,Farmer Code,Farmer Name,Mobile No,Aadhaar,Active Status,District,Village,Date of Plantation,Agent,Area (ha),Status,Submitted,Has KML,Plots Count,KML Download Link";
     const escape = (v: unknown): string => {
       if (v === null || v === undefined) return "";
       let s = String(v);
@@ -145,11 +145,12 @@ function buildCoconutCsv(
             hasKml = false;
           }
           
+          const phone = getCsvVal(c, "phone", "phone_number", "mobile", "mobile_number");
           return [
             id,
             escape(farmerCode),
             escape(c.farmer_name),
-            escape(c.phone),
+            escape(phone),
             aadhaar,
             activeStatus,
             escape(c.district),
