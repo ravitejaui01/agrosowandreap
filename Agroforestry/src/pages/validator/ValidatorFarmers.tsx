@@ -69,8 +69,8 @@ function buildCoconutCsv(
   getAreaHa: (c: CoconutPlantationRow) => number | null,
   docLinksByCode: Record<string, DocLinks> = {},
   hasAllFourDocsByCode: Record<string, boolean> = {},
-  /** Base URL for KML link — use API base so GET /api/kml/:id returns file directly (one-click download) */
-  kmlBaseUrl: string = ""
+  /** App origin for KML link (e.g. https://agrosowandreap.vercel.app) — link opens /validator/kml/:id and triggers download; works after deploy without API */
+  appOrigin: string = ""
 ): string {
   try {
     // Validate input
@@ -132,11 +132,11 @@ function buildCoconutCsv(
             plotsCount = plots.length;
             hasKml = plots.some((p) => Array.isArray(p.latlngs) && p.latlngs.length >= 3);
             
-            // KML link: API URL so GET /api/kml/:id returns file directly — one click = immediate download
-            if (hasKml && kmlBaseUrl) {
+            // KML link: app URL so after deploy (e.g. Vercel) link works — opens /validator/kml/:id, page triggers download
+            if (hasKml && appOrigin) {
               const farmerId = c.id ?? farmerCode;
               if (farmerId) {
-                kmlDownloadLink = `${kmlBaseUrl.replace(/\/$/, "")}/api/kml/${encodeURIComponent(String(farmerId))}`;
+                kmlDownloadLink = `${appOrigin.replace(/\/$/, "")}/validator/kml/${encodeURIComponent(String(farmerId))}`;
               }
             }
           } catch (plotError) {
@@ -702,14 +702,14 @@ export default function ValidatorFarmers() {
                     const code = String(c.farmer_id ?? c.farmer_code ?? c.id ?? "").trim();
                     uploadedForCsv[code] = isFarmerInBucketList(code, bucketFolderNames as string[]);
                   });
-                  const kmlBaseUrl = (import.meta.env.VITE_API_URL ?? (typeof window !== "undefined" ? window.location.origin : "")).replace(/\/$/, "");
+                  const appOrigin = typeof window !== "undefined" ? window.location.origin : "";
                   const csv = buildCoconutCsv(
                     dataToExport,
                     (c, hasAllFourFromBucket) => getSubmissionStatus(c, hasAllFourFromBucket),
                     getAreaHa,
                     docLinksByCode,
                     uploadedForCsv,
-                    kmlBaseUrl
+                    appOrigin
                   );
                   
                   if (!csv || csv.length === 0) {
