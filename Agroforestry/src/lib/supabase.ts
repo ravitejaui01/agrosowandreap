@@ -384,15 +384,17 @@ export async function getCoconutPlantationsFromSupabase(): Promise<CoconutPlanta
   return all;
 }
 
-/** Fetch one row from coconut_plantations by id (or farmer_code); Supabase only. */
+/** Fetch one row from coconut_plantations by id, farmer_code, or farmer_id (for KML link from Excel). */
 export async function getCoconutPlantationByIdFromSupabase(
   id: string
 ): Promise<CoconutPlantationRow | null> {
   if (!supabase) return null;
+  const sid = String(id ?? "").trim();
+  if (!sid) return null;
   let { data, error } = await supabase
     .from("coconut_plantations")
     .select("*")
-    .eq("id", id)
+    .eq("id", sid)
     .maybeSingle();
   if (error) {
     console.error("Supabase coconut_plantations by id error:", error.message);
@@ -402,10 +404,20 @@ export async function getCoconutPlantationByIdFromSupabase(
     const byCode = await supabase
       .from("coconut_plantations")
       .select("*")
-      .eq("farmer_code", id)
+      .eq("farmer_code", sid)
       .maybeSingle();
     if (!byCode.error && byCode.data) {
       data = byCode.data;
+    }
+  }
+  if (!data) {
+    const byFarmerId = await supabase
+      .from("coconut_plantations")
+      .select("*")
+      .eq("farmer_id", sid)
+      .maybeSingle();
+    if (!byFarmerId.error && byFarmerId.data) {
+      data = byFarmerId.data;
     }
   }
   return data as CoconutPlantationRow | null;

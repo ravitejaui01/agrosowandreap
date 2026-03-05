@@ -12,13 +12,14 @@ import { ArrowLeft, Download, CheckCircle } from "lucide-react";
  * builds KML, triggers download, and shows success. User can then open the .kml file with Google Earth.
  */
 export default function ValidatorKmlDownload() {
-  const { id } = useParams<{ id: string }>();
+  const { id: idParam } = useParams<{ id: string }>();
+  const id = (idParam ?? "").trim();
   const downloadedRef = useRef(false);
 
   const { data: row, isLoading, error } = useQuery({
     queryKey: ["coconut-plantation-kml", id],
-    queryFn: () => getCoconutPlantationByIdFromSupabase(id!),
-    enabled: !!id,
+    queryFn: () => getCoconutPlantationByIdFromSupabase(id),
+    enabled: id.length > 0,
   });
 
   useEffect(() => {
@@ -61,8 +62,13 @@ export default function ValidatorKmlDownload() {
   if (error || !row) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-6">
-        <div className="text-center text-destructive">
+        <div className="text-center text-destructive max-w-sm space-y-2">
           <p>Record not found or error loading data.</p>
+          {id && (
+            <p className="text-sm text-muted-foreground">
+              Looked up: <span className="font-mono">{id}</span> (as id, farmer_code, and farmer_id in coconut_plantations).
+            </p>
+          )}
           <Button variant="outline" className="mt-4" asChild>
             <Link to="/validator/farmers">Back to Farmer Records</Link>
           </Button>
