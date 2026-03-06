@@ -66,13 +66,13 @@ function getDocLinksFromList(docs: { path?: string; name: string; url: string }[
 const FIXED_CSV_KEYS = new Set([
   "id", "farmer_code", "farmer_id", "farmer_name", "phone", "phone_number", "mobile", "mobile_number",
   "aadhaar", "aadhaar_number", "active_status", "district", "village", "date_of_plantation", "agent_name",
+  "adjusted_polygon_area_by_kosher_ha",
 ]);
 
 /** Build CSV content from coconut rows (Excel-compatible). Includes fixed columns then ALL other Supabase columns. */
 function buildCoconutCsv(
   rows: CoconutPlantationRow[],
   getStatus: (c: CoconutPlantationRow, hasAllFourFromBucket?: boolean) => string,
-  getAreaHa: (c: CoconutPlantationRow) => number | null,
   docLinksByCode: Record<string, DocLinks> = {},
   hasAllFourDocsByCode: Record<string, boolean> = {},
   /** App origin for KML link (e.g. https://agrosowandreap.vercel.app) — link opens /validator/kml/:id and triggers download; works after deploy without API */
@@ -117,7 +117,7 @@ function buildCoconutCsv(
     rows.forEach((c) => Object.keys(c as Record<string, unknown>).forEach((k) => allKeys.add(k)));
     const extraKeys = [...allKeys].filter((k) => !FIXED_CSV_KEYS.has(k)).sort();
 
-    const fixedHeader = "ID,Farmer Code,Farmer Name,Mobile No,Aadhaar,Active Status,District,Village,Date of Plantation,Agent,Area (ha),Status,Submitted,Has KML,Plots Count,KML Download Link";
+    const fixedHeader = "ID,Farmer Code,Farmer Name,Mobile No,Aadhaar,Active Status,District,Village,Date of Plantation,Agent,Adjusted polygon area (ha),Status,Submitted,Has KML,Plots Count,KML Download Link";
     const header = extraKeys.length > 0 ? fixedHeader + "," + extraKeys.map((k) => escape(k)).join(",") : fixedHeader;
 
     const lines = [
@@ -125,7 +125,6 @@ function buildCoconutCsv(
       ...rows.map((c, index) => {
         try {
           const r = c as Record<string, unknown>;
-          const areaHa = getAreaHa(c);
           const farmerCode = String(c.farmer_id ?? c.farmer_code ?? c.id ?? "").trim();
           const hasAllFourFromBucket = hasAllFourDocsByCode[farmerCode] || false;
           const status = getStatus(c, hasAllFourFromBucket);
@@ -150,6 +149,10 @@ function buildCoconutCsv(
           }
 
           const phone = getCsvVal(c, "phone", "phone_number", "mobile", "mobile_number");
+          const adjustedHa = r.adjusted_polygon_area_by_kosher_ha;
+          const adjustedHaStr = adjustedHa != null && adjustedHa !== "" && String(adjustedHa).toLowerCase() !== "undefined"
+            ? (Number.isFinite(Number(adjustedHa)) ? String(Number(adjustedHa).toFixed(2)) : escape(String(adjustedHa)))
+            : "";
           const fixedPart = [
             id,
             escape(farmerCode),
@@ -161,7 +164,7 @@ function buildCoconutCsv(
             escape(c.village),
             date,
             escape(c.agent_name),
-            areaHa != null ? String(Number(areaHa).toFixed(2)) : "",
+            adjustedHaStr,
             escape(status),
             escape(submittedDate(c, status)),
             escape(hasKml ? "Yes" : "No"),
@@ -381,10 +384,11 @@ function getSubmissionStatus(
   return hasAllFourComplete(c) ? "Submitted" : "Incomplete";
 }
 
-/** Get area in hectares from a coconut row (Supabase may use different column names). */
+/** Get area in hectares from a coconut row. Prefers adjusted_polygon_area_by_kosher_ha for validator table. */
 function getAreaHa(c: CoconutPlantationRow | Record<string, unknown>): number | null {
   const r = c as Record<string, unknown>;
   const keys = [
+    "adjusted_polygon_area_by_kosher_ha",
     "area_under_coconut_hectares", "areaUnderCoconutHectares", "area_under_coconut", "areaUnderCoconut",
     "total_area_hectares", "totalAreaHectares", "total_area", "totalArea", "area_hectares", "land_size", "landSize",
   ];
@@ -396,7 +400,7 @@ function getAreaHa(c: CoconutPlantationRow | Record<string, unknown>): number | 
     }
   }
   for (const k of Object.keys(r)) {
-    if (/area_under_coconut|areaUnderCoconut|total_area_hectares|totalAreaHectares|area.*hectare/i.test(k)) {
+    if (/adjusted_polygon_area_by_kosher_ha|area_under_coconut|areaUnderCoconut|total_area_hectares|totalAreaHectares|area.*hectare/i.test(k)) {
       const v = r[k];
       if (v != null && v !== "") {
         const n = Number(v);
@@ -694,7 +698,6 @@ export default function ValidatorFarmers() {
                   const csv = buildCoconutCsv(
                     dataToExport,
                     (c, hasAllFourFromBucket) => getSubmissionStatus(c, hasAllFourFromBucket),
-                    getAreaHa,
                     docLinksByCode,
                     uploadedForCsv,
                     appOrigin
@@ -777,7 +780,7 @@ export default function ValidatorFarmers() {
                     <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Village</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Date of Plantation</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Agent</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Area (ha)</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Adjusted polygon area (ha)</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Submitted</th>
                     <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">KML</th>
@@ -793,7 +796,6 @@ export default function ValidatorFarmers() {
                     </tr>
                   ) : (
                     coconutPageRows.map((c: CoconutPlantationRow) => {
-                      const areaHa = getAreaHa(c);
                       const code = String(c.farmer_id ?? c.farmer_code ?? c.id ?? "").trim();
                       const hasUploaded = !!hasUploadedByCodeAll[code];
                       const status = bucketFoldersLoading ? "Checking" : (hasUploaded ? "Submitted" : "Incomplete");
@@ -817,7 +819,14 @@ export default function ValidatorFarmers() {
                               : "—"}
                           </td>
                           <td className="px-6 py-4 text-foreground">{c.agent_name ?? "—"}</td>
-                          <td className="px-6 py-4 tabular-nums font-medium">{areaHa != null ? Number(areaHa).toFixed(2) : "—"}</td>
+                          <td className="px-6 py-4 tabular-nums font-medium">
+                            {(() => {
+                              const v = (c as Record<string, unknown>).adjusted_polygon_area_by_kosher_ha;
+                              if (v == null || v === "") return "—";
+                              const n = Number(v);
+                              return Number.isFinite(n) ? n.toFixed(2) : "—";
+                            })()}
+                          </td>
                           <td className="px-6 py-4">
                             {bucketFoldersLoading ? (
                               <span className="inline-flex items-center rounded-full bg-muted text-muted-foreground px-3 py-1 text-xs font-medium">

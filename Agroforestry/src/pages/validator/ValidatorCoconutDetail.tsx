@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { getCoconutPlantationByIdFromSupabase, getPlotsFromRow, createFarmerRecordInSupabase } from "@/lib/supabase";
+import { getCoconutPlantationByIdFromSupabase, getPlotsFromRow, createFarmerRecordInSupabase, updateCoconutPlantationById } from "@/lib/supabase";
 import type { CoconutPlantationRow, CoconutPlotRow } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -15,9 +15,11 @@ import {
 } from "@/components/ui/dialog";
 import { MapContainer, TileLayer, Polygon, useMap, Tooltip, Popup } from "react-leaflet"; // FIXED: added Tooltip & Popup
 import L from "leaflet";
-import { ArrowLeft, Map as MapIcon, FileText, Download, ZoomIn, ZoomOut, Maximize2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Map as MapIcon, FileText, Download, ZoomIn, ZoomOut, Maximize2, AlertCircle, Pencil, Check, X } from "lucide-react";
 import { buildKmlForPlots, downloadKml } from "@/lib/kml";
 import { supabase } from "@/lib/supabase";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 // Make sure this is in your main entry file (index.tsx / main.tsx):
 // import 'leaflet/dist/leaflet.css';
@@ -272,6 +274,73 @@ export default function ValidatorCoconutDetail() {
   const [docsLoading, setDocsLoading] = useState(false);
   const [docsError, setDocsError] = useState<string | null>(null);
 
+  type Section1Form = {
+    farmer_name: string;
+    aadhaar: string;
+    phone: string;
+    village: string;
+    block_tehsil_mandal: string;
+    district: string;
+    state: string;
+  };
+  const [section1Editing, setSection1Editing] = useState(false);
+  const [section1Saving, setSection1Saving] = useState(false);
+  const [section1Form, setSection1Form] = useState<Section1Form>({
+    farmer_name: "",
+    aadhaar: "",
+    phone: "",
+    village: "",
+    block_tehsil_mandal: "",
+    district: "",
+    state: "",
+  });
+
+  const startSection1Edit = () => {
+    if (!row) return;
+    const r = row as Record<string, unknown>;
+    setSection1Form({
+      farmer_name: String(r.farmer_name ?? ""),
+      aadhaar: String(r.aadhaar ?? r.aadhaar_number ?? r.aadhar ?? ""),
+      phone: String(r.phone ?? r.phone_number ?? r.mobile ?? r.mobile_number ?? ""),
+      village: String(r.village ?? ""),
+      block_tehsil_mandal: String(r.block_tehsil_mandal ?? ""),
+      district: String(r.district ?? ""),
+      state: String(r.state ?? ""),
+    });
+    setSection1Editing(true);
+  };
+
+  const cancelSection1Edit = () => {
+    setSection1Editing(false);
+  };
+
+  const handleSection1Update = async () => {
+    if (!row?.id) return;
+    setSection1Saving(true);
+    try {
+      const { ok, error } = await updateCoconutPlantationById(row.id, {
+        farmer_name: section1Form.farmer_name || null,
+        aadhaar: section1Form.aadhaar || null,
+        phone: section1Form.phone || null,
+        village: section1Form.village || null,
+        block_tehsil_mandal: section1Form.block_tehsil_mandal || null,
+        district: section1Form.district || null,
+        state: section1Form.state || null,
+      });
+      if (ok) {
+        toast.success("Farmer details updated.");
+        setSection1Editing(false);
+        queryClient.invalidateQueries({ queryKey: ["coconut-plantation", id] });
+      } else {
+        toast.error(error ?? "Failed to update.");
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to update.");
+    } finally {
+      setSection1Saving(false);
+    }
+  };
+
   useEffect(() => {
     if (!farmerCodeForDocs || !row) return;
 
@@ -482,40 +551,130 @@ export default function ValidatorCoconutDetail() {
                 <AccordionContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 pb-2">
                     <div className="space-y-4">
-                      <h4 className="font-medium text-foreground">Personal Details</h4>
-                      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-                        <dt className="text-muted-foreground">Farmer Code</dt>
-                        <dd className="font-mono">{row.id ?? "—"}</dd>
-                        <dt className="text-muted-foreground">Farmer Name</dt>
-                        <dd>{row.farmer_name ?? "—"}</dd>
-                        <dt className="text-muted-foreground">Aadhaar</dt>
-                        <dd>{String(row.aadhaar ?? row.aadhaar_number ?? row.aadhar ?? "") || "—"}</dd>
-                        <dt className="text-muted-foreground">Submission Date</dt>
-                        <dd>{row.created_at ? new Date(String(row.created_at)).toLocaleDateString() : "—"}</dd>
-                      </dl>
-                      <h4 className="font-medium text-foreground mt-4">Contact Details</h4>
-                      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-                        <dt className="text-muted-foreground">Mobile No</dt>
-                        <dd>{String(row.phone ?? row.phone_number ?? row.mobile ?? row.mobile_number ?? "") || "—"}</dd>
-                      </dl>
-                      <h4 className="font-medium text-foreground mt-4">Address Details</h4>
-                      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-                        <dt className="text-muted-foreground">Village</dt>
-                        <dd>{row.village ?? "—"}</dd>
-                        <dt className="text-muted-foreground">Block / Tehsil</dt>
-                        <dd>{row.block_tehsil_mandal ?? "—"}</dd>
-                        <dt className="text-muted-foreground">District</dt>
-                        <dd>{row.district ?? "—"}</dd>
-                        <dt className="text-muted-foreground">State</dt>
-                        <dd>{row.state ?? "—"}</dd>
-                      </dl>
-                      <p className="text-sm text-muted-foreground mt-2">
-                        <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                          Status: Pending
-                        </span>
-                      </p>
+                      {!section1Editing ? (
+                        <>
+                          <div className="flex items-center justify-between gap-2">
+                            <h4 className="font-medium text-foreground">Personal Details</h4>
+                            <Button variant="outline" size="sm" className="gap-1.5" onClick={startSection1Edit}>
+                              <Pencil className="h-3.5 w-3.5" />
+                              Edit
+                            </Button>
+                          </div>
+                          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+                            <dt className="text-muted-foreground">Farmer Code</dt>
+                            <dd className="font-mono">{row.id ?? "—"}</dd>
+                            <dt className="text-muted-foreground">Farmer Name</dt>
+                            <dd>{row.farmer_name ?? "—"}</dd>
+                            <dt className="text-muted-foreground">Aadhaar</dt>
+                            <dd>{String(row.aadhaar ?? row.aadhaar_number ?? row.aadhar ?? "") || "—"}</dd>
+                            <dt className="text-muted-foreground">Submission Date</dt>
+                            <dd>{row.created_at ? new Date(String(row.created_at)).toLocaleDateString() : "—"}</dd>
+                          </dl>
+                          <h4 className="font-medium text-foreground mt-4">Contact Details</h4>
+                          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+                            <dt className="text-muted-foreground">Mobile No</dt>
+                            <dd>{String(row.phone ?? row.phone_number ?? row.mobile ?? row.mobile_number ?? "") || "—"}</dd>
+                          </dl>
+                          <h4 className="font-medium text-foreground mt-4">Address Details</h4>
+                          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+                            <dt className="text-muted-foreground">Village</dt>
+                            <dd>{row.village ?? "—"}</dd>
+                            <dt className="text-muted-foreground">Block / Tehsil</dt>
+                            <dd>{row.block_tehsil_mandal ?? "—"}</dd>
+                            <dt className="text-muted-foreground">District</dt>
+                            <dd>{row.district ?? "—"}</dd>
+                            <dt className="text-muted-foreground">State</dt>
+                            <dd>{row.state ?? "—"}</dd>
+                          </dl>
+                          <p className="text-sm text-muted-foreground mt-2">
+                            <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                              Status: Pending
+                            </span>
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <h4 className="font-medium text-foreground">Edit Farmer Details</h4>
+                          <p className="text-xs text-muted-foreground font-mono">Farmer Code: {row.id ?? "—"} (read-only)</p>
+                          <div className="space-y-3">
+                            <div className="space-y-1.5">
+                              <Label htmlFor="s1-farmer_name">Farmer Name</Label>
+                              <Input
+                                id="s1-farmer_name"
+                                value={section1Form.farmer_name}
+                                onChange={(e) => setSection1Form((f) => ({ ...f, farmer_name: e.target.value }))}
+                                className="max-w-md"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="s1-aadhaar">Aadhaar</Label>
+                              <Input
+                                id="s1-aadhaar"
+                                value={section1Form.aadhaar}
+                                onChange={(e) => setSection1Form((f) => ({ ...f, aadhaar: e.target.value }))}
+                                className="max-w-md"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="s1-phone">Mobile No</Label>
+                              <Input
+                                id="s1-phone"
+                                value={section1Form.phone}
+                                onChange={(e) => setSection1Form((f) => ({ ...f, phone: e.target.value }))}
+                                className="max-w-md"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="s1-village">Village</Label>
+                              <Input
+                                id="s1-village"
+                                value={section1Form.village}
+                                onChange={(e) => setSection1Form((f) => ({ ...f, village: e.target.value }))}
+                                className="max-w-md"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="s1-block">Block / Tehsil / Mandal</Label>
+                              <Input
+                                id="s1-block"
+                                value={section1Form.block_tehsil_mandal}
+                                onChange={(e) => setSection1Form((f) => ({ ...f, block_tehsil_mandal: e.target.value }))}
+                                className="max-w-md"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="s1-district">District</Label>
+                              <Input
+                                id="s1-district"
+                                value={section1Form.district}
+                                onChange={(e) => setSection1Form((f) => ({ ...f, district: e.target.value }))}
+                                className="max-w-md"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="s1-state">State</Label>
+                              <Input
+                                id="s1-state"
+                                value={section1Form.state}
+                                onChange={(e) => setSection1Form((f) => ({ ...f, state: e.target.value }))}
+                                className="max-w-md"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 mt-4">
+                            <Button size="sm" className="gap-1.5" onClick={handleSection1Update} disabled={section1Saving}>
+                              <Check className="h-3.5 w-3.5" />
+                              {section1Saving ? "Updating…" : "Update"}
+                            </Button>
+                            <Button variant="outline" size="sm" className="gap-1.5" onClick={cancelSection1Edit} disabled={section1Saving}>
+                              <X className="h-3.5 w-3.5" />
+                              Cancel
+                            </Button>
+                          </div>
+                        </>
+                      )}
                     </div>
-                    {row.location && (
+                    {row.location && !section1Editing && (
                       <div className="rounded border p-3 bg-muted/30">
                         <p className="text-xs font-mono text-muted-foreground">Farmer Code: {row.id}</p>
                         <p className="text-xs text-muted-foreground">
@@ -560,7 +719,6 @@ export default function ValidatorCoconutDetail() {
                             <th className="text-left p-3">Document Type</th>
                             <th className="text-left p-3">Preview</th>
                             <th className="text-left p-3">Status</th>
-                            <th className="text-right p-3">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -614,14 +772,6 @@ export default function ValidatorCoconutDetail() {
                                 )}
                               </td>
                               <td className="p-3 font-medium">Pending</td>
-                              <td className="p-3 text-right space-x-2">
-                                <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={handleApprove} disabled={!!actionLoading}>
-                                  Approve
-                                </Button>
-                                <Button size="sm" variant="destructive" onClick={() => setRecollectDialogOpen(true)} disabled={!!actionLoading}>
-                                  Recollect
-                                </Button>
-                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -654,13 +804,12 @@ export default function ValidatorCoconutDetail() {
                             <th className="text-left p-2">Plot Code</th>
                             <th className="text-left p-2">Area (Acres)</th>
                             <th className="text-left p-2">Area (Ha)</th>
-                            <th className="text-right p-2">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
                           {plotsList.length === 0 ? (
                             <tr>
-                              <td colSpan={4} className="p-4 text-center text-muted-foreground">
+                              <td colSpan={3} className="p-4 text-center text-muted-foreground">
                                 There is no Plot Image Details
                               </td>
                             </tr>
@@ -673,14 +822,6 @@ export default function ValidatorCoconutDetail() {
                                   <td className="p-2 font-mono text-xs">{row.id}-P{i + 1}</td>
                                   <td className="p-2">{acres != null ? acres.toFixed(2) : "—"}</td>
                                   <td className="p-2">{ha != null ? Number(ha).toFixed(3) : "—"}</td>
-                                  <td className="p-2 text-right">
-                                    <Button size="sm" className="bg-green-600 hover:bg-green-700 mr-1" onClick={handleApprove} disabled={!!actionLoading}>
-                                      Approve
-                                    </Button>
-                                    <Button size="sm" variant="destructive" onClick={() => setRecollectDialogOpen(true)} disabled={!!actionLoading}>
-                                      Recollect
-                                    </Button>
-                                  </td>
                                 </tr>
                               );
                             })
@@ -777,13 +918,12 @@ export default function ValidatorCoconutDetail() {
                             <th className="text-left p-2">View Map</th>
                             <th className="text-left p-2">Download KML</th>
                             <th className="text-left p-2">Status</th>
-                            <th className="text-right p-2">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
                           {plotsList.length === 0 ? (
                             <tr>
-                              <td colSpan={5} className="p-4 text-center text-muted-foreground">
+                              <td colSpan={4} className="p-4 text-center text-muted-foreground">
                                 No plot geoboundaries
                               </td>
                             </tr>
@@ -820,14 +960,6 @@ export default function ValidatorCoconutDetail() {
                                   )}
                                 </td>
                                 <td className="p-2">Pending</td>
-                                <td className="p-2 text-right">
-                                  <Button size="sm" className="bg-green-600 hover:bg-green-700 mr-1" onClick={handleApprove} disabled={!!actionLoading}>
-                                    Approve
-                                  </Button>
-                                  <Button size="sm" variant="destructive" onClick={() => setRecollectDialogOpen(true)} disabled={!!actionLoading}>
-                                    Recollect
-                                  </Button>
-                                </td>
                               </tr>
                             ))
                           )}

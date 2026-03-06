@@ -763,6 +763,21 @@ export async function updateCoconutPlantationStatus(
   return { ok: true };
 }
 
+/** Update coconut plantation row fields (e.g. Section 1 farmer details). Uses row id. */
+export async function updateCoconutPlantationById(
+  id: string | number,
+  updates: Partial<CoconutPlantationRow> & Record<string, unknown>
+): Promise<{ ok: boolean; error?: string }> {
+  if (!supabase) return { ok: false, error: "Supabase not configured" };
+  const payload = { ...updates, updated_at: new Date().toISOString() };
+  const { error } = await supabase
+    .from("coconut_plantations")
+    .update(payload)
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
 /** Clear all farmer records from Supabase for fresh start */
 export async function clearAllFarmerRecords(): Promise<{ ok: boolean; error?: string }> {
   if (!supabase) return { ok: false, error: "Supabase not configured" };

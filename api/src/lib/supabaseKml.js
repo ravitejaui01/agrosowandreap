@@ -234,6 +234,10 @@ function escapeKml(s) {
 }
 
 export function buildKmlForPlots(plots, plotCodePrefix, farmerData = {}) {
+  const farmerCode = escapeKml(String(farmerData?.id ?? farmerData?.farmer_code ?? farmerData?.farmer_id ?? plotCodePrefix));
+  const farmerName = escapeKml(String(farmerData?.farmer_name ?? "N/A"));
+  const placemarkDescription = `<b>Farmer Code:</b> ${farmerCode}<br/><b>Farmer Name:</b> ${farmerName}`;
+
   const placemarks = plots
     .filter((p) => Array.isArray(p.latlngs) && p.latlngs.length >= 3)
     .map((p, i) => {
@@ -244,6 +248,7 @@ export function buildKmlForPlots(plots, plotCodePrefix, farmerData = {}) {
       const coords = closed.map(([lat, lng]) => `${lng},${lat},0`).join(" ");
       return `    <Placemark>
       <name>${escapeKml(name)}</name>
+      <description><![CDATA[${placemarkDescription}]]></description>
       <styleUrl>#plotStyle</styleUrl>
       <Polygon>
         <outerBoundaryIs>
@@ -255,12 +260,7 @@ export function buildKmlForPlots(plots, plotCodePrefix, farmerData = {}) {
     </Placemark>`;
     });
 
-  const docDescription = `
-<b>Farmer Information</b><br/>
-<b>Farmer ID:</b> ${escapeKml(farmerData?.id ?? farmerData?.farmer_code ?? plotCodePrefix)}<br/>
-<b>Generated:</b> ${new Date().toLocaleDateString()}<br/>
-<b>Source:</b> Agroforestry Management System
-  `.trim();
+  const docDescription = `<b>Farmer Code:</b> ${farmerCode}<br/><b>Farmer Name:</b> ${farmerName}`;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
