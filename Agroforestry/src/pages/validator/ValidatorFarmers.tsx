@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import { useState, useMemo, useEffect, useRef, Fragment } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { getCoconutPlantationsFromSupabase, listDocumentsByFarmerCode, getPlotsFromRow, listDocumentsBucketFolderNames, createFarmerRecordInSupabase, updateCoconutPlantationStatus, applyStorageDocumentsPolicy } from "@/lib/supabase";
@@ -8,8 +8,12 @@ import { buildKmlForPlots, downloadKml } from "@/lib/kml";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
-import { Search, ChevronLeft, ChevronRight, Download, Eye, CheckCircle } from "lucide-react";
+import { format } from "date-fns";
+import { Search, ChevronLeft, ChevronRight, Download, Eye, CheckCircle, CalendarIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const COCONUT_PAGE_SIZE = 100;
 
@@ -413,14 +417,33 @@ function getAreaHa(c: CoconutPlantationRow | Record<string, unknown>): number | 
 
 type StatusTab = "all" | "submitted" | "incomplete";
 
+/** Submission date string (YYYY-MM-DD) from a coconut row for filtering/grouping. */
+function getSubmissionDateKey(c: CoconutPlantationRow): string {
+  const raw = (c as Record<string, unknown>).updated_at ?? (c as Record<string, unknown>).created_at;
+  if (!raw) return "";
+  const d = new Date(String(raw));
+  return isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+}
+
 export default function ValidatorFarmers() {
+  const [searchParams] = useSearchParams();
   const [coconutSearch, setCoconutSearch] = useState("");
   const [statusTab, setStatusTab] = useState<StatusTab>("all");
+  const [dateFilter, setDateFilter] = useState<string | null>(null); // YYYY-MM-DD or null = all dates
   const [coconutPage, setCoconutPage] = useState(0);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const [exportReady, setExportReady] = useState<{ url: string; filename: string } | null>(null);
   const exportBlobUrlRef = useRef<string | null>(null);
+
+  // Restore tab and date from URL when returning from Farmer Information (Back button)
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    const date = searchParams.get("date");
+    if (tab === "submitted" || tab === "incomplete" || tab === "all") setStatusTab(tab);
+    if (date != null && date !== "") setDateFilter(date);
+    else setDateFilter(null);
+  }, [searchParams]);
 
   const {
     data: coconutPlantations = [],
@@ -518,6 +541,47 @@ export default function ValidatorFarmers() {
     });
   }, [filteredCoconut, statusTab, hasUploadedByCodeAll]);
 
+  // Records that have uploaded documents (folder in bucket) — used for calendar dots so "Uploaded Documents" dates always show
+  const coconutWithUploads = useMemo(
+    () => filteredCoconut.filter((c) => {
+      const code = String(c.farmer_id ?? c.farmer_code ?? c.id ?? "").trim();
+      return !!hasUploadedByCodeAll[code];
+    }),
+    [filteredCoconut, hasUploadedByCodeAll]
+  );
+
+  // Count records per date for event-style calendar: use uploaded-docs set so calendar shows all dates that have uploads (aligns with Uploaded Documents count)
+  const recordCountByDate = useMemo(() => {
+    const map: Record<string, number> = {};
+    coconutWithUploads.forEach((c) => {
+      const key = getSubmissionDateKey(c);
+      if (key) map[key] = (map[key] ?? 0) + 1;
+    });
+    return map;
+  }, [coconutWithUploads]);
+
+  // Filter by submission date when date filter is set
+  const dateFilteredCoconut = useMemo(() => {
+    if (!dateFilter) return tabFilteredCoconut;
+    return tabFilteredCoconut.filter((c) => getSubmissionDateKey(c) === dateFilter);
+  }, [tabFilteredCoconut, dateFilter]);
+
+  // Group by submission date (newest first) for date-wise display
+  const recordsByDate = useMemo(() => {
+    const map = new Map<string, { dateLabel: string; records: CoconutPlantationRow[] }>();
+    dateFilteredCoconut.forEach((c) => {
+      const key = getSubmissionDateKey(c) || "no-date";
+      const raw = (c as Record<string, unknown>).updated_at ?? (c as Record<string, unknown>).created_at;
+      const d = raw ? new Date(String(raw)) : new Date();
+      const dateLabel = key === "no-date" ? "No date" : d.toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
+      if (!map.has(key)) map.set(key, { dateLabel, records: [] });
+      map.get(key)!.records.push(c);
+    });
+    return Array.from(map.entries())
+      .sort((a, b) => (a[0] === "no-date" ? 1 : b[0] === "no-date" ? -1 : b[0].localeCompare(a[0])))
+      .map(([dateKey, { dateLabel, records }]) => ({ dateKey, dateLabel, records }));
+  }, [dateFilteredCoconut]);
+
   const recordCounts = useMemo(() => {
     let submitted = 0;
     let incomplete = 0;
@@ -529,13 +593,23 @@ export default function ValidatorFarmers() {
     return { submitted, incomplete, total: filteredCoconut.length };
   }, [filteredCoconut, hasUploadedByCodeAll]);
 
-  const coconutTotal = tabFilteredCoconut.length;
+  // Sort by submission date (newest first) for date-wise display
+  const sortedByDate = useMemo(
+    () => [...dateFilteredCoconut].sort((a, b) => {
+      const ka = getSubmissionDateKey(a);
+      const kb = getSubmissionDateKey(b);
+      return kb.localeCompare(ka);
+    }),
+    [dateFilteredCoconut]
+  );
+
+  const coconutTotal = sortedByDate.length;
   const coconutPageCount = Math.max(1, Math.ceil(coconutTotal / COCONUT_PAGE_SIZE));
   const coconutFrom = coconutTotal === 0 ? 0 : coconutPage * COCONUT_PAGE_SIZE + 1;
   const coconutTo = Math.min((coconutPage + 1) * COCONUT_PAGE_SIZE, coconutTotal);
   const coconutPageRows = useMemo(
-    () => tabFilteredCoconut.slice(coconutPage * COCONUT_PAGE_SIZE, (coconutPage + 1) * COCONUT_PAGE_SIZE),
-    [tabFilteredCoconut, coconutPage]
+    () => sortedByDate.slice(coconutPage * COCONUT_PAGE_SIZE, (coconutPage + 1) * COCONUT_PAGE_SIZE),
+    [sortedByDate, coconutPage]
   );
 
   useEffect(() => {
@@ -559,7 +633,7 @@ export default function ValidatorFarmers() {
 
   useEffect(() => {
     setCoconutPage(0);
-  }, [coconutSearch, statusTab]);
+  }, [coconutSearch, statusTab, dateFilter]);
 
   useEffect(() => {
     if (coconutPage >= coconutPageCount && coconutPageCount > 0) setCoconutPage(0);
@@ -629,15 +703,182 @@ export default function ValidatorFarmers() {
         </div>
 
         <div className="bg-card rounded-xl border border-border p-6 shadow-sm mb-6">
-          <div className="flex flex-col lg:flex-row gap-4 items-center">
-            <div className="relative flex-1 w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-              <Input
-                placeholder="Search by ID, farmer code, name, district, village, agent..."
-                value={coconutSearch}
-                onChange={(e) => setCoconutSearch(e.target.value)}
-                className="pl-10 h-11 rounded-lg border-border bg-background focus-visible:ring-2 focus-visible:ring-primary/20"
-              />
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-row gap-3 items-center flex-wrap">
+              <div className="relative flex-1 min-w-[200px] max-w-xl">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <Input
+                  placeholder="Search by ID, farmer code, name, district, village, agent..."
+                  value={coconutSearch}
+                  onChange={(e) => setCoconutSearch(e.target.value)}
+                  className="pl-10 h-10 rounded-lg border-border bg-background focus-visible:ring-2 focus-visible:ring-primary/20"
+                />
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <label className="text-sm text-muted-foreground whitespace-nowrap">Filter by date:</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "h-10 min-w-[160px] justify-start text-left font-normal rounded-lg",
+                        !dateFilter && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dateFilter ? format(new Date(dateFilter + "T12:00:00"), "dd MMM yyyy") : "Pick a date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" side="bottom" align="start" sideOffset={6} avoidCollisions={false}>
+                    <Calendar
+                      mode="single"
+                      selected={dateFilter ? new Date(dateFilter + "T12:00:00") : undefined}
+                      onSelect={(d) => setDateFilter(d ? format(d, "yyyy-MM-dd") : null)}
+                      modifiers={{
+                        hasRecords: (date) => (recordCountByDate[format(date, "yyyy-MM-dd")] ?? 0) > 0,
+                      }}
+                      modifiersClassNames={{
+                        hasRecords: "day-has-records",
+                      }}
+                      components={{
+                        DayContent: ({ date, activeModifiers }) => {
+                          const key = format(date, "yyyy-MM-dd");
+                          const count = recordCountByDate[key] ?? 0;
+                          return (
+                            <span className="relative inline-flex flex-col items-center justify-center gap-0.5">
+                              <span>{format(date, "d")}</span>
+                              {count > 0 && (
+                                <span
+                                  className={cn(
+                                    "text-[10px] font-medium tabular-nums leading-none rounded px-1 min-w-[1.25rem] flex items-center justify-center",
+                                    activeModifiers.selected
+                                      ? "bg-primary-foreground/20 text-primary-foreground"
+                                      : "bg-primary/15 text-primary"
+                                  )}
+                                  title={`${count} record${count === 1 ? "" : "s"}`}
+                                >
+                                  {count}
+                                </span>
+                              )}
+                            </span>
+                          );
+                        },
+                      }}
+                    />
+                    <p className="px-3 pt-1 text-xs text-muted-foreground border-t border-border">
+                      Numbers show record count per date
+                    </p>
+                    <div className="flex items-center justify-between gap-2 p-3">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8"
+                        onClick={() => setDateFilter(null)}
+                      >
+                        Clear
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8"
+                        onClick={() => setDateFilter(format(new Date(), "yyyy-MM-dd"))}
+                      >
+                        Today
+                      </Button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                {dateFilter && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-10 shrink-0 rounded-lg"
+                    onClick={() => setDateFilter(null)}
+                    title="Clear date to show all records"
+                  >
+                    Clear date
+                  </Button>
+                )}
+              </div>
+              <Button
+                variant="default"
+                size="sm"
+                className="gap-2 h-10 shrink-0 rounded-lg"
+                onClick={async () => {
+                  const dataToExport = dateFilteredCoconut;
+                  if (exporting || dataToExport.length === 0) return;
+                  setExportError(null);
+                  setExportReady((prev) => {
+                    if (prev?.url) {
+                      try { URL.revokeObjectURL(prev.url); } catch { /* ignore */ }
+                    }
+                    return null;
+                  });
+                  setExporting(true);
+                  try {
+                    if (!dataToExport || dataToExport.length === 0) {
+                      throw new Error("No data available for export");
+                    }
+                    const docLinksByCode: Record<string, DocLinks> = {};
+                    dataToExport.forEach((c) => {
+                      const code = String(c.farmer_id ?? c.farmer_code ?? c.id ?? "").trim();
+                      if (!code) return;
+                      docLinksByCode[code] = {
+                        aadhaarUrl: getCsvVal(c, "aadhaar_url", "aadhaar_document", "aadhaar_document_url", "aadhaarFile", "aadhaar_path"),
+                        agreementUrl: getCsvVal(c, "agreement_url", "agreement_document", "plantation_agreement", "farmer_agreement", "agreementFile", "agreement_path"),
+                        bankUrl: getCsvVal(c, "bank_url", "bank_document", "bank_statement", "bank_passbook", "bankFile", "bank_path"),
+                        priorConsiderationUrl: getCsvVal(c, "prior_consideration_url", "prior_consideration_document", "priorConsiderationFile", "priorConsiderationPath"),
+                        rtcUrl: getCsvVal(c, "rtc_url", "rtc_document", "land_document", "survey_document", "patta_document", "land_patta_or_survey_number", "rtcFile", "rtc_path", "landRecord"),
+                      };
+                    });
+                    const uploadedForCsv: Record<string, boolean> = {};
+                    dataToExport.forEach((c) => {
+                      const code = String(c.farmer_id ?? c.farmer_code ?? c.id ?? "").trim();
+                      uploadedForCsv[code] = isFarmerInBucketList(code, bucketFolderNames as string[]);
+                    });
+                    const appOrigin = typeof window !== "undefined" ? window.location.origin : "";
+                    const csv = buildCoconutCsv(
+                      dataToExport,
+                      (c, hasAllFourFromBucket) => getSubmissionStatus(c, hasAllFourFromBucket),
+                      docLinksByCode,
+                      uploadedForCsv,
+                      appOrigin
+                    );
+                    if (!csv || csv.length === 0) {
+                      throw new Error("Failed to generate CSV content");
+                    }
+                    const searchPart = coconutSearch.trim() ? `-${coconutSearch.trim().slice(0, 20).replace(/[^\w\-]/g, "_")}` : "";
+                    const tabPart = statusTab === "all" ? "all" : statusTab === "submitted" ? "submitted" : "incomplete";
+                    const name = `coconut-plantations-${tabPart}${searchPart}-${new Date().toISOString().slice(0, 10)}.csv`;
+                    const url = createCsvBlobUrl(csv);
+                    setExportReady({ url, filename: name });
+                    setTimeout(() => {
+                      try { downloadCsv(csv, name); } catch { /* user can use link */ }
+                    }, 100);
+                  } catch (err) {
+                    const message = err instanceof Error ? err.message : "Export failed";
+                    setExportError(message);
+                    if (message.includes("No data")) {
+                      setExportError("No data available to export. Please try refreshing the data.");
+                    } else if (message.includes("network") || message.includes("fetch")) {
+                      setExportError("Network error occurred. Please check your connection and try again.");
+                    } else if (message.includes("memory") || message.includes("size")) {
+                      setExportError("Dataset too large. Try filtering the data first.");
+                    } else {
+                      setExportError(`Export failed: ${message}`);
+                    }
+                  } finally {
+                    setExporting(false);
+                  }
+                }}
+                disabled={coconutLoading || exporting || dateFilteredCoconut.length === 0}
+              >
+                <Download className="h-4 w-4" />
+                {exporting ? "Preparing export…" : "Download Excel"}
+              </Button>
             </div>
             {exportError && (
               <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive flex items-center justify-between gap-2 w-full lg:w-auto">
@@ -657,90 +898,6 @@ export default function ValidatorFarmers() {
                 </a>
               </div>
             )}
-            <Button
-              variant="default"
-              size="default"
-              className="gap-2 h-11 px-6 rounded-lg shadow-sm whitespace-nowrap"
-              onClick={async () => {
-                const dataToExport = tabFilteredCoconut;
-                if (exporting || dataToExport.length === 0) return;
-                setExportError(null);
-                setExportReady((prev) => {
-                  if (prev?.url) {
-                    try { URL.revokeObjectURL(prev.url); } catch { /* ignore */ }
-                  }
-                  return null;
-                });
-                setExporting(true);
-                try {
-                  if (!dataToExport || dataToExport.length === 0) {
-                    throw new Error("No data available for export");
-                  }
-                  // Build doc links from DB fields only (no storage API calls) so export is fast
-                  const docLinksByCode: Record<string, DocLinks> = {};
-                  dataToExport.forEach((c) => {
-                    const code = String(c.farmer_id ?? c.farmer_code ?? c.id ?? "").trim();
-                    if (!code) return;
-                    docLinksByCode[code] = {
-                      aadhaarUrl: getCsvVal(c, "aadhaar_url", "aadhaar_document", "aadhaar_document_url", "aadhaarFile", "aadhaar_path"),
-                      agreementUrl: getCsvVal(c, "agreement_url", "agreement_document", "plantation_agreement", "farmer_agreement", "agreementFile", "agreement_path"),
-                      bankUrl: getCsvVal(c, "bank_url", "bank_document", "bank_statement", "bank_passbook", "bankFile", "bank_path"),
-                      priorConsiderationUrl: getCsvVal(c, "prior_consideration_url", "prior_consideration_document", "priorConsiderationFile", "priorConsiderationPath"),
-                      rtcUrl: getCsvVal(c, "rtc_url", "rtc_document", "land_document", "survey_document", "patta_document", "land_patta_or_survey_number", "rtcFile", "rtc_path", "landRecord"),
-                    };
-                  });
-                  const uploadedForCsv: Record<string, boolean> = {};
-                  dataToExport.forEach((c) => {
-                    const code = String(c.farmer_id ?? c.farmer_code ?? c.id ?? "").trim();
-                    uploadedForCsv[code] = isFarmerInBucketList(code, bucketFolderNames as string[]);
-                  });
-                  const appOrigin = typeof window !== "undefined" ? window.location.origin : "";
-                  const csv = buildCoconutCsv(
-                    dataToExport,
-                    (c, hasAllFourFromBucket) => getSubmissionStatus(c, hasAllFourFromBucket),
-                    docLinksByCode,
-                    uploadedForCsv,
-                    appOrigin
-                  );
-                  
-                  if (!csv || csv.length === 0) {
-                    throw new Error("Failed to generate CSV content");
-                  }
-                  const searchPart = coconutSearch.trim() ? `-${coconutSearch.trim().slice(0, 20).replace(/[^\w\-]/g, "_")}` : "";
-                  const tabPart = statusTab === "all" ? "all" : statusTab === "submitted" ? "submitted" : "incomplete";
-                  const name = `coconut-plantations-${tabPart}${searchPart}-${new Date().toISOString().slice(0, 10)}.csv`;
-                  
-                  const url = createCsvBlobUrl(csv);
-                  setExportReady({ url, filename: name });
-                  
-                  // Trigger download with delay to ensure UI updates
-                  setTimeout(() => {
-                    try { downloadCsv(csv, name); } catch { /* user can use link */ }
-                  }, 100);
-                  
-                } catch (err) {
-                  const message = err instanceof Error ? err.message : "Export failed";
-                  setExportError(message);
-                  
-                  // Show user-friendly error messages
-                  if (message.includes("No data")) {
-                    setExportError("No data available to export. Please try refreshing the data.");
-                  } else if (message.includes("network") || message.includes("fetch")) {
-                    setExportError("Network error occurred. Please check your connection and try again.");
-                  } else if (message.includes("memory") || message.includes("size")) {
-                    setExportError("Dataset too large. Try filtering the data first.");
-                  } else {
-                    setExportError(`Export failed: ${message}`);
-                  }
-                } finally {
-                  setExporting(false);
-                }
-              }}
-              disabled={coconutLoading || exporting || tabFilteredCoconut.length === 0}
-            >
-              <Download className="h-4 w-4" />
-              {exporting ? "Preparing export…" : "Download Excel"}
-            </Button>
           </div>
         </div>
 
@@ -795,18 +952,34 @@ export default function ValidatorFarmers() {
                       </td>
                     </tr>
                   ) : (
-                    coconutPageRows.map((c: CoconutPlantationRow) => {
-                      const code = String(c.farmer_id ?? c.farmer_code ?? c.id ?? "").trim();
-                      const hasUploaded = !!hasUploadedByCodeAll[code];
-                      const status = bucketFoldersLoading ? "Checking" : (hasUploaded ? "Submitted" : "Incomplete");
-                      const plots = getPlotsFromRow(c as any);
-                      const hasGeoboundaries = plots.some((p) => Array.isArray(p.latlngs) && p.latlngs.length >= 3);
-                      const submittedAt = status === "Submitted"
-                        ? (c.updated_at || c.created_at)
-                        : null;
-                      const submittedStr = submittedAt ? new Date(String(submittedAt)).toLocaleDateString() : "—";
-                      return (
-                        <tr key={c.id ?? String(c.created_at ?? Math.random())} className="hover:bg-muted/30 transition-colors">
+                    (() => {
+                      let lastDateKey: string | null = null;
+                      return coconutPageRows.map((c: CoconutPlantationRow) => {
+                        const code = String(c.farmer_id ?? c.farmer_code ?? c.id ?? "").trim();
+                        const hasUploaded = !!hasUploadedByCodeAll[code];
+                        const status = bucketFoldersLoading ? "Checking" : (hasUploaded ? "Submitted" : "Incomplete");
+                        const plots = getPlotsFromRow(c as any);
+                        const hasGeoboundaries = plots.some((p) => Array.isArray(p.latlngs) && p.latlngs.length >= 3);
+                        const submittedAt = status === "Submitted"
+                          ? (c.updated_at || c.created_at)
+                          : null;
+                        const submittedStr = submittedAt ? new Date(String(submittedAt)).toLocaleDateString() : "—";
+                        const dateKey = getSubmissionDateKey(c) || "no-date";
+                        const raw = (c as Record<string, unknown>).updated_at ?? (c as Record<string, unknown>).created_at;
+                        const dateLabel = raw ? new Date(String(raw)).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" }) : "No date";
+                        const dateSectionCount = recordsByDate.find((g) => g.dateKey === dateKey)?.records.length ?? 0;
+                        const showDateHeader = dateKey !== lastDateKey;
+                        if (showDateHeader) lastDateKey = dateKey;
+                        return (
+                          <Fragment key={c.id ?? String(c.created_at ?? Math.random())}>
+                            {showDateHeader && (
+                              <tr className="bg-muted/60 border-y border-border">
+                                <td colSpan={11} className="px-6 py-3 text-sm font-semibold text-foreground">
+                                  {dateLabel} — {dateSectionCount} record{dateSectionCount === 1 ? "" : "s"}
+                                </td>
+                              </tr>
+                            )}
+                            <tr className="hover:bg-muted/30 transition-colors">
                           <td className="px-6 py-4 font-mono text-xs text-foreground">
                             {code || "—"}
                           </td>
@@ -864,26 +1037,39 @@ export default function ValidatorFarmers() {
                           <td className="px-6 py-4 text-right">
                             {c.id && (
                               <Button variant="outline" size="sm" className="h-8 w-8 rounded-lg" asChild>
-                                <Link to={`/validator/farmers/coconut/${c.id}`} title="View">
+                                <Link
+                                  to={`/validator/farmers/coconut/${c.id}${(() => {
+                                    const q = new URLSearchParams();
+                                    if (statusTab !== "all") q.set("tab", statusTab);
+                                    if (dateFilter) q.set("date", dateFilter);
+                                    const s = q.toString();
+                                    return s ? `?${s}` : "";
+                                  })()}`}
+                                  title="View"
+                                >
                                   <Eye className="h-4 w-4" />
                                 </Link>
                               </Button>
                             )}
                           </td>
                         </tr>
-                      );
-                    })
+                          </Fragment>
+                        );
+                      });
+                    })()
                   )}
-                  {!coconutLoading && filteredCoconut.length === 0 && (
+                  {!coconutLoading && dateFilteredCoconut.length === 0 && (
                     <tr>
                       <td colSpan={11} className="px-6 py-12 text-center text-muted-foreground">
-                        {coconutSearch.trim()
-                          ? "No matching records for your search. Try a different ID, name, or district."
-                          : statusTab === "submitted"
-                            ? "No submitted records in this view."
-                            : statusTab === "incomplete"
-                              ? "No incomplete records in this view."
-                              : "No rows in coconut_plantations table. Add data in Supabase or check RLS."}
+                        {dateFilter
+                          ? "No records on this date. Try another date or clear the date filter."
+                          : coconutSearch.trim()
+                            ? "No matching records for your search. Try a different ID, name, or district."
+                            : statusTab === "submitted"
+                              ? "No submitted records in this view."
+                              : statusTab === "incomplete"
+                                ? "No incomplete records in this view."
+                                : "No rows in coconut_plantations table. Add data in Supabase or check RLS."}
                       </td>
                     </tr>
                   )}

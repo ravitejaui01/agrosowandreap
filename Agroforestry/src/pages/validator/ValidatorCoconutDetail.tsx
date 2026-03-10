@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { getCoconutPlantationByIdFromSupabase, getPlotsFromRow, createFarmerRecordInSupabase, updateCoconutPlantationById } from "@/lib/supabase";
@@ -256,7 +256,20 @@ function PlotGeoboundariesModal({
 
 export default function ValidatorCoconutDetail() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
+
+  // Preserve tab and date when returning to Farmer Records (Back button)
+  const backToFarmersUrl = useMemo(() => {
+    const tab = searchParams.get("tab");
+    const date = searchParams.get("date");
+    const q = new URLSearchParams();
+    if (tab === "submitted" || tab === "incomplete" || tab === "all") q.set("tab", tab);
+    if (date != null && date !== "") q.set("date", date);
+    const s = q.toString();
+    return s ? `/validator/farmers?${s}` : "/validator/farmers";
+  }, [searchParams]);
+
   const [mapOpen, setMapOpen] = useState(false);
   const [recollectDialogOpen, setRecollectDialogOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState<"approve" | "recollect" | null>(null);
@@ -520,7 +533,7 @@ export default function ValidatorCoconutDetail() {
         <div className="flex items-center justify-between gap-4">
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Farmer Information</h1>
           <Button variant="outline" asChild className="gap-1.5 border-border bg-card hover:bg-muted/80 text-foreground shadow-sm">
-            <Link to="/validator/farmers">
+            <Link to={backToFarmersUrl}>
               <ArrowLeft className="h-4 w-4" />
               Back
             </Link>

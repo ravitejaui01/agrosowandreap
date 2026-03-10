@@ -132,6 +132,22 @@ export default function ValidatorRecords() {
     return { submitted, incomplete: draft, total: visibleRecords.length };
   }, [records, removedRecordIds]);
 
+  /** Group filtered records by submission date (created_at), newest first. */
+  const recordsByDate = useMemo(() => {
+    const map = new Map<string, { dateLabel: string; records: FarmerRecord[] }>();
+    for (const r of filteredRecords) {
+      const raw = r.createdAt ?? (r as Record<string, unknown>).created_at;
+      const d = raw ? new Date(String(raw)) : new Date();
+      const key = d.toISOString().slice(0, 10);
+      const dateLabel = d.toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
+      if (!map.has(key)) map.set(key, { dateLabel, records: [] });
+      map.get(key)!.records.push(r);
+    }
+    return Array.from(map.entries())
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([dateKey, { dateLabel, records: recs }]) => ({ dateKey, dateLabel, records: recs }));
+  }, [filteredRecords]);
+
   return (
     <DashboardLayout userRole="data_validator" userName="Mary Wanjiku">
       <div className="space-y-8">
@@ -230,14 +246,29 @@ export default function ValidatorRecords() {
           <div className="rounded-xl border border-border bg-card p-8 text-center text-muted-foreground">
             Loading records…
           </div>
-        ) : (
+        ) : recordsByDate.length === 0 ? (
           <RecentRecords
-            records={filteredRecords}
+            records={[]}
             viewAllLink="/validator/records"
             showActions
             onView={(record) => navigate(`/validator/farmers/coconut/${record.farmerId}`)}
             onRemove={handleRemoveRecord}
           />
+        ) : (
+          <div className="space-y-6">
+            {recordsByDate.map(({ dateKey, dateLabel, records: dateRecords }) => (
+              <RecentRecords
+                key={dateKey}
+                records={dateRecords}
+                viewAllLink="/validator/records"
+                showActions
+                title={`${dateLabel} — ${dateRecords.length} record${dateRecords.length === 1 ? "" : "s"}`}
+                showViewAll={false}
+                onView={(record) => navigate(`/validator/farmers/coconut/${record.farmerId}`)}
+                onRemove={handleRemoveRecord}
+              />
+            ))}
+          </div>
         )}
       </div>
     </DashboardLayout>

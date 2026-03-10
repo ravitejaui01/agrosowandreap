@@ -262,13 +262,23 @@ function normalizePointForDedup(c: [number, number]): [number, number] {
   return [a, b];
 }
 
-const DEDUP_COORD_DECIMALS = 4;
+const DEDUP_COORD_DECIMALS = 5;
 
-/** Build a stable key for a polygon so duplicates (same shape from different columns) collapse. Uses 4 decimals and unique points so closed rings match. */
+/** Build a stable key for a polygon so duplicates (same shape from different columns) collapse. Rounds to 5 decimals, removes consecutive duplicate points (so closed rings match), then unique-sorted points. */
 function plotKey(latlngs: [number, number][]): string {
+  if (latlngs.length < 3) return "";
   const normalized = latlngs.map((c) => normalizePointForDedup(c));
-  const rounded = normalized.map((c) => `${c[0].toFixed(DEDUP_COORD_DECIMALS)},${c[1].toFixed(DEDUP_COORD_DECIMALS)}`);
-  const unique = [...new Set(rounded)];
+  const rounded = normalized.map((c) =>
+    `${Number(c[0].toFixed(DEDUP_COORD_DECIMALS))},${Number(c[1].toFixed(DEDUP_COORD_DECIMALS))}`
+  );
+  // Remove consecutive duplicates so closed ring [a,b,c,a] and [a,b,c] key the same
+  const noConsecutiveDup: string[] = [];
+  for (let i = 0; i < rounded.length; i++) {
+    if (noConsecutiveDup.length === 0 || rounded[i] !== noConsecutiveDup[noConsecutiveDup.length - 1]) {
+      noConsecutiveDup.push(rounded[i]);
+    }
+  }
+  const unique = [...new Set(noConsecutiveDup)];
   return unique.sort().join("|");
 }
 

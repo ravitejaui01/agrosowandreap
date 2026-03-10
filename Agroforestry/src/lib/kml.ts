@@ -24,8 +24,7 @@ export function buildKmlForPlots(plots: CoconutPlotRow[], plotCodePrefix: string
           : [...ring, ring[0]];
       const coords = closed.map(([lat, lng]) => `${lng},${lat},0`).join(" ");
       const farmerCode = escapeKml(String(farmerData?.id ?? farmerData?.farmer_code ?? farmerData?.farmer_id ?? plotCodePrefix));
-      const farmerName = escapeKml(String(farmerData?.farmer_name ?? "N/A"));
-      const description = `<b>Farmer Code:</b> ${farmerCode}<br/><b>Farmer Name:</b> ${farmerName}`;
+      const description = `<b>Farmer Code:</b> ${farmerCode}`;
       
       return `    <Placemark>
       <name>${escapeKml(name)}</name>
@@ -42,8 +41,7 @@ export function buildKmlForPlots(plots: CoconutPlotRow[], plotCodePrefix: string
     });
     
   const farmerCode = escapeKml(String(farmerData?.id ?? farmerData?.farmer_code ?? farmerData?.farmer_id ?? plotCodePrefix));
-  const farmerName = escapeKml(String(farmerData?.farmer_name ?? "N/A"));
-  const docDescription = `<b>Farmer Code:</b> ${farmerCode}<br/><b>Farmer Name:</b> ${farmerName}`;
+  const docDescription = `<b>Farmer Code:</b> ${farmerCode}`;
   
   return `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">

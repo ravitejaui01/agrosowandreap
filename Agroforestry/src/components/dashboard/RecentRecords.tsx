@@ -10,19 +10,25 @@ interface RecentRecordsProps {
   showActions?: boolean;
   onView?: (record: FarmerRecord) => void;
   onRemove?: (record: FarmerRecord) => void;
+  /** Optional title (e.g. "9 March — 10 records") when used inside date groups */
+  title?: React.ReactNode;
+  /** When true, hide the "View All" button (e.g. when rendering per-date sections) */
+  showViewAll?: boolean;
 }
 
-export function RecentRecords({ records, viewAllLink, showActions = false, onView, onRemove }: RecentRecordsProps) {
+export function RecentRecords({ records, viewAllLink, showActions = false, onView, onRemove, title, showViewAll = true }: RecentRecordsProps) {
   return (
     <div className="rounded-xl border border-border bg-card animate-fade-in">
       <div className="flex items-center justify-between p-6 pb-4">
-        <h3 className="text-lg font-semibold">Recent Records</h3>
-        <Button variant="ghost" size="sm" asChild>
-          <Link to={viewAllLink} className="gap-1">
-            View All
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </Button>
+        <h3 className="text-lg font-semibold">{title ?? "Recent Records"}</h3>
+        {showViewAll && (
+          <Button variant="ghost" size="sm" asChild>
+            <Link to={viewAllLink} className="gap-1">
+              View All
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
+        )}
       </div>
 
       <div className="overflow-x-auto">
