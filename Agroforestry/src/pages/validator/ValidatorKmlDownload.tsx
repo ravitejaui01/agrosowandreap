@@ -30,10 +30,15 @@ export default function ValidatorKmlDownload() {
     downloadedRef.current = true;
     const code = String(row.farmer_id ?? row.farmer_code ?? row.id ?? id).trim() || id;
     const rowData = row as Record<string, unknown>;
-    // Single KML file with all plots (same as UI table button and CSV expectation: 1 file per farmer, N plots inside)
-    const kml = buildKmlForPlots(validPlots, code, rowData);
-    const filename = `geoboundaries-${code}.kml`;
-    downloadKml(kml, filename);
+    // One KML per plot: plot_30024_p1.kml, plot_30024_p2.kml, ...
+    validPlots.forEach((p, i) => {
+      const delay = i * 400;
+      setTimeout(() => {
+        const kml = buildKmlForPlots([p], code, rowData);
+        const filename = `plot_${code}_p${i + 1}.kml`;
+        downloadKml(kml, filename);
+      }, delay);
+    });
   }, [row, id]);
 
   if (!id) {
@@ -86,12 +91,16 @@ export default function ValidatorKmlDownload() {
             <div className="mx-auto w-14 h-14 rounded-full bg-green-100 flex items-center justify-center">
               <CheckCircle className="h-8 w-8 text-green-600" />
             </div>
-            <h1 className="text-xl font-semibold text-foreground">KML downloaded</h1>
+            <h1 className="text-xl font-semibold text-foreground">
+              {validPlots.length === 1 ? "KML downloaded" : "KML files downloaded"}
+            </h1>
             <p className="text-muted-foreground text-sm">
-              One KML file with {validPlots.length} plot{validPlots.length === 1 ? "" : "s"} was downloaded. Open it from your Downloads folder with Google Earth or another KML viewer.
+              {validPlots.length === 1
+                ? "One KML file was downloaded. Open it from your Downloads folder with Google Earth or another KML viewer."
+                : `${validPlots.length} KML files were downloaded (plot_${code}_p1.kml through plot_${code}_p${validPlots.length}.kml). Open them with Google Earth or another KML viewer.`}
             </p>
             <p className="text-xs text-muted-foreground font-mono">
-              geoboundaries-{code}.kml
+              {validPlots.length === 1 ? `plot_${code}_p1.kml` : `plot_${code}_p1.kml … plot_${code}_p${validPlots.length}.kml`}
             </p>
           </>
         ) : (
