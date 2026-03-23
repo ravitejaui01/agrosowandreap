@@ -121,7 +121,7 @@ function buildCoconutCsv(
     rows.forEach((c) => Object.keys(c as Record<string, unknown>).forEach((k) => allKeys.add(k)));
     const extraKeys = [...allKeys].filter((k) => !FIXED_CSV_KEYS.has(k)).sort();
 
-    const fixedHeader = "ID,Farmer Code,Farmer Name,Mobile No,Aadhaar,Active Status,District,Village,Date of Plantation,Agent,Adjusted polygon area (ha),Status,Submitted,Has KML,Plots Count,KML Download Link";
+    const fixedHeader = "ID,Farmer Code,Farmer Name,Mobile No,Aadhaar,Active Status,District,Village,Date of Plantation,Agent,Adjusted polygon area (ha),Document Status,Submitted Date,Has KML,Plots Count,KML Download Link";
     const header = extraKeys.length > 0 ? fixedHeader + "," + extraKeys.map((k) => escape(k)).join(",") : fixedHeader;
 
     const lines = [
@@ -264,12 +264,40 @@ function downloadCsv(content: string, filename: string) {
   }
 }
 
+/** True if row has at least one document/photo (any doc type or URL/path field) — so even a single upload shows as Submitted. */
+function hasAtLeastOneDoc(c: CoconutPlantationRow | Record<string, unknown>): boolean {
+  const r = c as Record<string, unknown>;
+  const hasVal = (v: unknown) => v != null && v !== "" && String(v).trim() !== "" && String(v).toLowerCase() !== "undefined";
+  // Aadhaar (number or any aadhaar doc URL/path)
+  const hasAadhaar = hasVal(r.aadhaar ?? r.aadhaar_number ?? r.aadhaar_url ?? r.aadhaar_document ?? r.aadhaar_document_url ?? r.aadhaarFile ?? r.aadhaar_path);
+  // Agreement
+  const hasAgreement = hasVal(
+    r.agreement_url ?? r.agreement_document ?? r.agreement ?? r.agreementUrl ??
+    r.plantation_agreement ?? r.farmer_agreement ?? r.agreement_file ?? r.agreement_path
+  );
+  // RTC / land doc
+  const hasRTC = hasVal(
+    r.land_patta_survey_number ?? r.land_patta_survey ?? r.landPattaSurveyNumber ??
+    r.rtc_document ?? r.legal_document ?? r.land_document ?? r.survey_document ??
+    r.patta_document ?? r.rtc_number ?? r.land_patta_or_survey_number ?? r.rtcFile ?? r.rtc_path ?? r.landRecord
+  );
+  // Bank
+  const hasBank = hasVal(
+    r.bank_account ?? r.bank_name ?? r.ifsc ?? r.bank_details ?? r.bankAccount ??
+    r.bankName ?? r.bank_ifsc ?? r.bank_statement ?? r.bank_document ??
+    r.bank_passbook ?? r.bank_cheque ?? r.bank_url ?? r.bank_path
+  );
+  // Prior consideration or any generic document/photo field
+  const hasPriorConsideration = hasVal(
+    r.prior_consideration_url ?? r.prior_consideration_document ?? r.priorConsiderationFile ?? r.priorConsiderationPath
+  );
+  return hasAadhaar || hasAgreement || hasRTC || hasBank || hasPriorConsideration;
+}
+
 /** True only when all 4 docs are present: Aadhaar, Agreement, RTC, and Bank. If any one is missing → Incomplete. */
 function hasAllFourComplete(c: CoconutPlantationRow | Record<string, unknown>): boolean {
   const r = c as Record<string, unknown>;
   const hasVal = (v: unknown) => v != null && v !== "" && String(v).trim() !== "" && String(v).toLowerCase() !== "undefined";
-  
-  // Check database fields first
   const hasAadhaar = hasVal(r.aadhaar ?? r.aadhaar_number);
   const hasAgreement = hasVal(
     r.agreement_url ?? r.agreement_document ?? r.agreement ?? r.agreementUrl ?? 
@@ -285,19 +313,7 @@ function hasAllFourComplete(c: CoconutPlantationRow | Record<string, unknown>): 
     r.bankName ?? r.bank_ifsc ?? r.bank_statement ?? r.bank_document ?? 
     r.bank_passbook ?? r.bank_cheque
   );
-  
-  // If all documents are found in database fields, return true
-  if (hasAadhaar && hasAgreement && hasRTC && hasBank) {
-    return true;
-  }
-  
-  // Fallback: If farmer has basic data and aadhaar, assume documents exist in bucket
-  // This matches the CSV approach where we construct URLs based on pattern
-  const farmerCode = String(r.id ?? "").trim();
-  const hasBasicData = hasVal(r.farmer_name) || hasVal(r.phone) || hasAadhaar;
-  
-  // Use the same logic as CSV - if basic data exists, assume documents exist in bucket
-  return hasBasicData && hasAadhaar;
+  return hasAadhaar && hasAgreement && hasRTC && hasBank;
 }
 
 /** Check if documents actually exist in bucket by testing HTTP requests */
@@ -417,12 +433,16 @@ function getAreaHa(c: CoconutPlantationRow | Record<string, unknown>): number | 
 
 type StatusTab = "all" | "submitted" | "incomplete";
 
-/** Submission date string (YYYY-MM-DD) from a coconut row for filtering/grouping. */
+/** Submission date string (YYYY-MM-DD) in local timezone for filtering/grouping, so "10 March" matches all submissions that day locally. */
 function getSubmissionDateKey(c: CoconutPlantationRow): string {
   const raw = (c as Record<string, unknown>).updated_at ?? (c as Record<string, unknown>).created_at;
   if (!raw) return "";
   const d = new Date(String(raw));
-  return isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+  if (isNaN(d.getTime())) return "";
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 export default function ValidatorFarmers() {
@@ -519,7 +539,7 @@ export default function ValidatorFarmers() {
     return filtered;
   }, [coconutPlantations, coconutSearch]);
 
-  // Status for all filtered rows: folder in bucket → Submitted, else Incomplete
+  // Submitted = has folder in bucket (uploaded docs). Incomplete = no folder — so Incomplete tab shows records that need documents.
   const hasUploadedByCodeAll = useMemo(() => {
     const m: Record<string, boolean> = {};
     const folders = bucketFolderNames as string[];
@@ -530,7 +550,7 @@ export default function ValidatorFarmers() {
     return m;
   }, [filteredCoconut, bucketFolderNames]);
 
-  // Filter by tab: Submitted = has folder in bucket, Incomplete = no folder
+  // Filter by tab: Submitted = has folder in bucket, Incomplete = no folder (missing documents)
   const tabFilteredCoconut = useMemo(() => {
     if (statusTab === "all") return filteredCoconut;
     return filteredCoconut.filter((c) => {
@@ -840,9 +860,10 @@ export default function ValidatorFarmers() {
                       uploadedForCsv[code] = isFarmerInBucketList(code, bucketFolderNames as string[]);
                     });
                     const appOrigin = typeof window !== "undefined" ? window.location.origin : "";
+                    // Match UI: Submitted = folder in bucket, Incomplete = no folder
                     const csv = buildCoconutCsv(
                       dataToExport,
-                      (c, hasAllFourFromBucket) => getSubmissionStatus(c, hasAllFourFromBucket),
+                      (_c, hasAllFourFromBucket) => hasAllFourFromBucket ? "Submitted" : "Incomplete",
                       docLinksByCode,
                       uploadedForCsv,
                       appOrigin
