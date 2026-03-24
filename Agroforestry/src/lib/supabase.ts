@@ -357,7 +357,7 @@ const PAGE_SIZE = 1000;
 
 /**
  * Fetch all rows from coconut_plantations (Supabase only — source of truth for validator/farmers).
- * Uses cursor-based pagination to avoid large OFFSETs and statement timeouts.
+ * Uses range pagination with stable ordering to avoid missing rows when many records share same created_at.
  */
 export async function getCoconutPlantationsFromSupabase(): Promise<CoconutPlantationRow[]> {
   if (!supabase) {
@@ -365,31 +365,22 @@ export async function getCoconutPlantationsFromSupabase(): Promise<CoconutPlanta
     return [];
   }
   const all: CoconutPlantationRow[] = [];
-  let cursorCreatedAt: string | null = null;
-  let hasMore = true;
-  while (hasMore) {
-    let q = supabase
+  let from = 0;
+  while (true) {
+    const to = from + PAGE_SIZE - 1;
+    const { data, error } = await supabase
       .from("coconut_plantations")
       .select("*")
       .order("created_at", { ascending: false })
-      .limit(PAGE_SIZE);
-    if (cursorCreatedAt != null) {
-      q = q.lt("created_at", cursorCreatedAt);
-    }
-    const { data, error } = await q;
+      .range(from, to);
     if (error) {
       console.error("Supabase coconut_plantations error:", error.message);
       break;
     }
     const page = (data ?? []) as CoconutPlantationRow[];
     all.push(...page);
-    hasMore = page.length === PAGE_SIZE;
-    if (hasMore && page.length > 0) {
-      const last = page[page.length - 1];
-      const raw = last.created_at ?? (last as Record<string, unknown>).createdAt;
-      cursorCreatedAt = raw != null ? String(raw) : null;
-      if (cursorCreatedAt == null) hasMore = false;
-    }
+    if (page.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
   }
   return all;
 }

@@ -712,8 +712,8 @@ export default function ValidatorFarmers() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground mb-1">Total Records</p>
-                <p className="text-3xl font-bold text-gray-600">{recordCounts.total ?? 0}</p>
-                <p className="text-xs text-muted-foreground mt-1">All farmers (search result)</p>
+                <p className="text-3xl font-bold text-gray-600">{dateFilteredCoconut.length ?? 0}</p>
+                <p className="text-xs text-muted-foreground mt-1">Current view (search, tab, date)</p>
               </div>
               <div className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center">
                 <div className="h-3 w-3 rounded-full bg-gray-600"></div>
